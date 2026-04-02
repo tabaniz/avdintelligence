@@ -5135,7 +5135,7 @@ const QR_MSAL_CONFIG = {
   auth: {
     clientId:    '58495013-6d96-4b2e-afe9-1ec427778fc9',
     authority:   'https://login.microsoftonline.com/common',
-    redirectUri: https://tabaniz.github.io/avdintelligence/
+    redirectUri: window.location.href.split('?')[0]
   },
   cache: { cacheLocation: 'sessionStorage' }
 };
@@ -5210,10 +5210,265 @@ function qrCancel() {
 async function qrCollect() {
   const sel = document.getElementById('qr-sub');
   const subId = sel ? sel.value : null;
+  const subName = sel ? sel.options[sel.selectedIndex].text : subId;
   if (!subId) return;
   document.getElementById('qr-picker').remove();
-  // Chunk 2 — ARM data collection
-  alert('Ready: ' + subId + '. Data collection in next build.');
+
+  // ── Progress overlay ──────────────────────────────────────────────
+  const prog = document.createElement('div');
+  prog.id = 'qr-progress';
+  prog.style.cssText = 'position:fixed;inset:0;background:#00000099;z-index:9999;display:flex;align-items:center;justify-content:center';
+  prog.innerHTML = '<div style="background:#13161d;border:1px solid #10b98160;border-radius:12px;padding:28px 40px;text-align:center;min-width:320px">'
+    + '<div style="font-size:10px;color:#10b981;letter-spacing:2px;margin-bottom:12px">QUICK REPORT</div>'
+    + '<div id="qr-prog-msg" style="font-size:13px;color:#f0f4f8;margin-bottom:8px">Collecting data...</div>'
+    + '<div style="height:2px;background:#ffffff10;border-radius:2px;overflow:hidden"><div id="qr-prog-bar" style="height:100%;background:#10b981;width:0%;transition:width 0.4s"></div></div>'
+    + '</div>';
+  document.body.appendChild(prog);
+
+  function qrProgress(msg, pct) {
+    const m = document.getElementById('qr-prog-msg');
+    const b = document.getElementById('qr-prog-bar');
+    if (m) m.textContent = msg;
+    if (b) b.style.width = pct + '%';
+  }
+
+  function armGet(path) {
+    return fetch('https://management.azure.com' + path, {
+      headers: { Authorization: 'Bearer ' + qrToken }
+    }).then(function(r) { return r.json(); });
+  }
+
+  try {
+    // ── Subscription info ───────────────────────────────────────────
+    qrProgress('Getting subscription...', 5);
+    const subResp = await armGet('/subscriptions/' + subId + '?api-version=2022-12-01');
+    const tenantId = subResp.tenantId || '';
+
+    // ── Host Pools ──────────────────────────────────────────────────
+    qrProgress('Collecting host pools...', 15);
+    const hpResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.DesktopVirtualization/hostPools?api-version=2023-09-05');
+    const rawHPs = hpResp.value || [];
+
+    // ── Workspaces ──────────────────────────────────────────────────
+    qrProgress('Collecting workspaces...', 25);
+    const wsResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.DesktopVirtualization/workspaces?api-version=2023-09-05');
+    const rawWSs = wsResp.value || [];
+
+    // ── App Groups ──────────────────────────────────────────────────
+    qrProgress('Collecting app groups...', 35);
+    const agResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.DesktopVirtualization/applicationGroups?api-version=2023-09-05');
+    const rawAGs = agResp.value || [];
+
+    // ── Session Hosts + Sessions per Host Pool ───────────────────────
+    qrProgress('Collecting session hosts...', 45);
+    const allSessionHosts = [];
+    const allSessions = [];
+
+    for (let i = 0; i < rawHPs.length; i++) {
+      const hp = rawHPs[i];
+      const hpName = hp.name;
+      const rgMatch = hp.id.match(/resourceGroups\/([^/]+)\//i);
+      const rg = rgMatch ? rgMatch[1] : '';
+
+      const shResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + rg
+        + '/providers/Microsoft.DesktopVirtualization/hostPools/' + hpName
+        + '/sessionHosts?api-version=2023-09-05');
+      const shs = shResp.value || [];
+
+      shs.forEach(function(sh) {
+        const shName = sh.name.split('/').pop();
+        allSessionHosts.push({
+          name:              shName,
+          hostPoolName:      hpName,
+          resourceGroup:     rg,
+          subscriptionId:    subId,
+          id:                sh.id,
+          status:            sh.properties.status || 'Unknown',
+          agentVersion:      sh.properties.agentVersion || '',
+          allowNewSessions:  sh.properties.allowNewSession,
+          drainMode:         !sh.properties.allowNewSession,
+          lastHeartbeat:     sh.properties.lastHeartBeat || '',
+          assignedUser:      sh.properties.assignedUser || '',
+          vmName:            shName.split('.')[0],
+          osType:            'Windows',
+          powerState:        'Running',
+          activeSessions:    sh.properties.sessions || 0,
+          disconnectedSessions: 0,
+          sessions:          []
+        });
+      });
+
+      // Sessions
+      try {
+        const sessResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + rg
+          + '/providers/Microsoft.DesktopVirtualization/hostPools/' + hpName
+          + '/userSessions?api-version=2023-09-05');
+        (sessResp.value || []).forEach(function(s) {
+          allSessions.push({
+            sessionId:        s.name.split('/').pop(),
+            userPrincipalName: s.properties.userPrincipalName || '',
+            sessionHostName:  s.name.split('/')[1] || '',
+            hostPoolName:     hpName,
+            sessionState:     s.properties.sessionState || 'Unknown',
+            applicationType:  s.properties.applicationType || 'Desktop',
+            createTime:       s.properties.createTime || ''
+          });
+        });
+      } catch(e) { /* sessions optional */ }
+
+      qrProgress('Collecting session hosts... (' + (i+1) + '/' + rawHPs.length + ')', 45 + Math.round((i+1)/rawHPs.length * 25));
+    }
+
+    // ── VMs ──────────────────────────────────────────────────────────
+    qrProgress('Collecting VMs...', 72);
+    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01');
+    const vmMap = {};
+    (vmResp.value || []).forEach(function(vm) {
+      vmMap[vm.name.toLowerCase()] = {
+        vmSize:    vm.properties.hardwareProfile.vmSize || '',
+        osType:    vm.properties.storageProfile.osDisk.osType || 'Windows',
+        location:  vm.location || ''
+      };
+    });
+
+    // Enrich session hosts with VM data
+    allSessionHosts.forEach(function(sh) {
+      const vmKey = sh.vmName.toLowerCase();
+      if (vmMap[vmKey]) {
+        sh.vmSize     = vmMap[vmKey].vmSize;
+        sh.osType     = vmMap[vmKey].osType;
+        sh.vmLocation = vmMap[vmKey].location;
+      }
+    });
+
+    // ── Build D shape ─────────────────────────────────────────────────
+    qrProgress('Building report...', 90);
+    const now = new Date().toISOString();
+
+    const hostPools = rawHPs.map(function(hp) {
+      const hpName = hp.name;
+      const props  = hp.properties || {};
+      const rgMatch = hp.id.match(/resourceGroups\/([^/]+)\//i);
+      const rg = rgMatch ? rgMatch[1] : '';
+      const hpSHs  = allSessionHosts.filter(function(s) { return s.hostPoolName === hpName; });
+      const hpSess = allSessions.filter(function(s) { return s.hostPoolName === hpName; });
+      const avail  = hpSHs.filter(function(s) { return s.status === 'Available'; }).length;
+
+      return {
+        name:               hpName,
+        id:                 hp.id,
+        resourceGroup:      rg,
+        subscriptionId:     subId,
+        location:           hp.location || '',
+        friendlyName:       props.friendlyName || hpName,
+        description:        props.description || '',
+        hostPoolType:       props.hostPoolType || '',
+        loadBalancerType:   props.loadBalancerType || '',
+        maxSessionLimit:    props.maxSessionLimit || 0,
+        preferredAppGroupType: props.preferredAppGroupType || '',
+        publicNetworkAccess:   props.publicNetworkAccess || '',
+        startVMOnConnect:      props.startVMOnConnect || false,
+        isValidationEnv:       props.validationEnvironment || false,
+        customRdpProperties:   props.customRdpProperty || '',
+        rdpPropertiesParsed:   {},
+        registrationTokenStatus: 'Unknown',
+        sessionHostCount:    hpSHs.length,
+        sessionHostsAvailable: avail,
+        sessionHostsUnavailable: hpSHs.filter(function(s){ return s.status==='Unavailable'; }).length,
+        sessionHostsDrainMode:   hpSHs.filter(function(s){ return s.drainMode; }).length,
+        sessionHostsNeedsAssistance: hpSHs.filter(function(s){ return s.status==='NeedsAssistance'; }).length,
+        sessionHostsShutdown:    hpSHs.filter(function(s){ return s.status==='Shutdown'; }).length,
+        healthPct:           hpSHs.length ? Math.round(avail/hpSHs.length*100) : 0,
+        totalSessions:       hpSess.length,
+        activeSessions:      hpSess.filter(function(s){ return s.sessionState==='Active'; }).length,
+        disconnectedSessions:hpSess.filter(function(s){ return s.sessionState==='Disconnected'; }).length,
+        totalCapacity:       props.maxSessionLimit * hpSHs.length,
+        capacityUsedPct:     0,
+        hasScalingPlan:      false,
+        scalingPlanCount:    0,
+        scalingPlans:        [],
+        appGroupCount:       rawAGs.filter(function(a){ return (a.properties||{}).hostPoolArmPath===hp.id; }).length,
+        appGroups:           [],
+        privateEndpointEnabled: false,
+        privateEndpoints:    [],
+        diagnosticsEnabled:  false,
+        diagnosticSettings:  [],
+        securityFindings:    [],
+        securityScore:       100,
+        tags:                hp.tags || {},
+        rdpComplianceSummary:{score:0,compliant:0,total:0},
+        currentMonthCost:    null,
+        currency:            'AUD'
+      };
+    });
+
+    const totalSHs    = allSessionHosts.length;
+    const availSHs    = allSessionHosts.filter(function(s){ return s.status==='Available'; }).length;
+    const activeSess  = allSessions.filter(function(s){ return s.sessionState==='Active'; }).length;
+    const disconnSess = allSessions.filter(function(s){ return s.sessionState==='Disconnected'; }).length;
+
+    const D_live = {
+      schemaVersion:    'YGIT-AVDIntelligence/5.0-live',
+      generatedAt:      now,
+      subscriptionId:   subId,
+      subscriptionName: subName,
+      tenantId:         tenantId,
+      tenantName:       tenantId,
+      hostPools:        hostPools,
+      sessionHosts:     allSessionHosts,
+      sessions:         allSessions,
+      avdWorkspaces:    rawWSs.map(function(w){ return { name:w.name, id:w.id, friendlyName:(w.properties||{}).friendlyName||w.name, location:w.location, resourceGroup:(w.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'' }; }),
+      applicationGroups:rawAGs.map(function(a){ return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'' }; }),
+      scalingPlans:     [],
+      metrics:          { querySupported:false, queriesRun:[], queriesSkipped:[] },
+      networking:       null,
+      fslogixCoverage:  { hostsWithout:[], storageAccounts:[] },
+      resourceGroups:   [],
+      imageDrift:       {},
+      summary: {
+        hostPoolCount:         hostPools.length,
+        pooledHostPools:       hostPools.filter(function(h){ return h.hostPoolType==='Pooled'; }).length,
+        personalHostPools:     hostPools.filter(function(h){ return h.hostPoolType==='Personal'; }).length,
+        totalSessionHosts:     totalSHs,
+        availableHosts:        availSHs,
+        needsAssistanceHosts:  allSessionHosts.filter(function(s){ return s.status==='NeedsAssistance'; }).length,
+        drainModeHosts:        allSessionHosts.filter(function(s){ return s.drainMode; }).length,
+        unavailableHosts:      allSessionHosts.filter(function(s){ return s.status==='Unavailable'; }).length,
+        totalActiveSessions:   activeSess,
+        totalDisconnectedSessions: disconnSess,
+        totalSessions:         allSessions.length,
+        avdWorkspaceCount:     rawWSs.length,
+        applicationGroupCount: rawAGs.length,
+        scalingPlanCount:      0,
+        hostPoolsWithoutScaling: hostPools.length,
+        hostPoolsWithDiagnostics: 0,
+        hostPoolsWithoutDiagnostics: hostPools.length,
+        hostsWithFSLogixDetected: 0,
+        overallHealthPct:      totalSHs ? Math.round(availSHs/totalSHs*100) : 0,
+        costAvailable:         false,
+        sessionDetailCollected:true,
+        collectedAt:           now,
+        currency:              'AUD'
+      },
+      displayConfig: { isLiveMode: true },
+      reportConfig:  {}
+    };
+
+    // ── Hand off to report builder ────────────────────────────────────
+    qrProgress('Done!', 100);
+    setTimeout(function() {
+      document.getElementById('qr-progress').remove();
+      initData(D_live);
+      // Skip sidebar, go straight to report builder
+      $('sidebar').style.display = 'none';
+      navTo('reportbuilder');
+    }, 600);
+
+  } catch(err) {
+    console.error('QR collect error:', err);
+    document.getElementById('qr-progress').remove();
+    alert('Data collection failed: ' + (err.message || err));
+  }
 }
 
 </script>
