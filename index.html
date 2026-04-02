@@ -5262,6 +5262,20 @@ async function qrCollect() {
     const agResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.DesktopVirtualization/applicationGroups?api-version=2023-09-05');
     const rawAGs = agResp.value || [];
 
+    // ── RBAC per App Group ──────────────────────────────────────────
+    qrProgress('Collecting RBAC assignments...', 40);
+    const allRoleAssignments = {};
+    for (let i = 0; i < rawAGs.length; i++) {
+      const ag = rawAGs[i];
+      const agRg = (ag.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'';
+      try {
+        const raResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + agRg
+          + '/providers/Microsoft.DesktopVirtualization/applicationGroups/' + ag.name
+          + '/providers/microsoft.authorization/roleAssignments?api-version=2022-04-01');
+        allRoleAssignments[ag.id] = raResp.value || [];
+      } catch(e) { allRoleAssignments[ag.id] = []; }
+    }
+
     // ── Session Hosts + Sessions per Host Pool ───────────────────────
     qrProgress('Collecting session hosts...', 45);
     const allSessionHosts = [];
@@ -5431,7 +5445,16 @@ async function qrCollect() {
       sessionHosts:     allSessionHosts,
       sessions:         allSessions,
       avdWorkspaces:    rawWSs.map(function(w){ return { name:w.name, id:w.id, friendlyName:(w.properties||{}).friendlyName||w.name, location:w.location, resourceGroup:(w.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'' }; }),
-      applicationGroups:rawAGs.map(function(a){ return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'' }; }),
+      applicationGroups:rawAGs.map(function(a){
+        const ras = allRoleAssignments[a.id] || [];
+        const users = [], groups = [];
+        ras.forEach(function(ra){
+          const p = ra.properties || {};
+          const entry = { objectId:p.principalId||'', objectType:p.principalType||'User', role:(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
+          if(p.principalType==='Group') groups.push(entry); else users.push(entry);
+        });
+        return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'', assignedUsers:users, assignedGroups:groups };
+      }),
       scalingPlans:     [],
       metrics:          { querySupported:false, queriesRun:[], queriesSkipped:[] },
       networking:       null,
