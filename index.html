@@ -873,7 +873,7 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
     <div class="header-spacer"></div>
     <span id="hdr-status" class="status-idle">AWAITING DATA</span>
     <span id="kb-hint" style="display:none;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px" title="Keyboard shortcuts: 0=Overview, 1=Host Pools … 9=RG Inventory · / focus search · Esc close">⌨ 0-9 · /</span>
-    <button class="hdr-btn export-btn" onclick="openExportModal()" id="export-btn" style="display:none">⬇ Export Docs</button>
+    <button class="hdr-btn export-btn" onclick="openExportModal()" id="export-btn" style="display:none">📄 Build Report</button>
     <button class="hdr-btn" onclick="document.getElementById('file-input').click()">📂 Load JSON</button>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark / light mode">🌙</button>
     <input type="file" id="file-input" accept=".json" onchange="loadFile(event)">
@@ -5472,9 +5472,10 @@ async function qrCollect() {
     setTimeout(function() {
       document.getElementById('qr-progress').remove();
       initData(D_live);
-      // Skip sidebar, go straight to report builder
+      // Skip sidebar, go straight to report builder and auto-open
       $('sidebar').style.display = 'none';
       navTo('reportbuilder');
+      rbOpen();
     }, 600);
 
   } catch(err) {
