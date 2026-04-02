@@ -4107,11 +4107,16 @@ function rbBuildHTMLDoc(){
       ? '<p style="font-size:10px;color:#64748b;font-style:italic;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:16px">This document reflects the environment and observed behaviour at the time of review and is intended for informational and operational reference purposes.</p>'
       : '';
 
+    const liveNoteHtml = D?.displayConfig?.isLiveMode
+      ? '<p style="font-size:10px;color:#64748b;font-style:italic;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:12px">This is a basic AVD environment document generated via Connect Live. For the full assessment including KQL analytics, FSLogix, networking and cost intelligence, run the PS1 collector.</p>'
+      : '';
+
     sections.push(
       sectionHeader(secNum++, '📋', 'Executive Summary', undefined, 'sec-exec') +
       '<p style="font-size:12px;line-height:1.9;color:#1e293b;margin-bottom:16px">'+execProse+'</p>' +
       closingParaHtml +
-      disclaimerHtml
+      disclaimerHtml +
+      liveNoteHtml
     );
   }
 
@@ -5135,7 +5140,7 @@ const QR_MSAL_CONFIG = {
   auth: {
     clientId:    '58495013-6d96-4b2e-afe9-1ec427778fc9',
     authority:   'https://login.microsoftonline.com/common',
-    redirectUri: window.location.href.split('?')[0]
+    redirectUri: 'https://tabaniz.github.io/avdintelligence/'
   },
   cache: { cacheLocation: 'sessionStorage' }
 };
