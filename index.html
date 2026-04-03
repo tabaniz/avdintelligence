@@ -994,19 +994,19 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
               <div class="lp-mode-icon">📋</div>
               <div style="flex:1">
                 <div class="lp-mode-name">Quick Report</div>
-                <div class="lp-mode-sub">Browser OAuth · Config snapshot · No PS1 needed</div>
+                <div class="lp-mode-sub">Browser OAuth · Azure ARM API · No PS1 needed</div>
               </div>
               <div class="lp-mode-badge">LITE MODE</div>
             </div>
             <ul class="lp-capability-list">
               <li><span class="lp-cap-icon">✓</span>Connect → report → download in under 5 minutes</li>
-              <li><span class="lp-cap-icon">✓</span>AVD configuration snapshot — host pools, workspaces, app groups</li>
-              <li><span class="lp-cap-icon">✓</span>Session host inventory and status</li>
-              <li><span class="lp-cap-icon">✓</span>RDP compliance and security findings</li>
-              <li><span class="lp-cap-icon">✓</span>No sidebar, no views — straight to the document</li>
+              <li><span class="lp-cap-icon">✓</span>Host pools, workspaces, app groups &amp; published apps</li>
+              <li><span class="lp-cap-icon">✓</span>Session hosts, user sessions &amp; RBAC assignments</li>
+              <li><span class="lp-cap-icon">✓</span>Live data — direct Azure ARM API, no file upload</li>
+              <li><span class="lp-cap-icon">✓</span>No sidebar — straight to report builder &amp; export</li>
               <li><span class="lp-cap-icon">✓</span>Ideal for recurring client documentation</li>
               <li><span class="lp-cap-icon" style="color:var(--text-muted)">—</span><span style="color:var(--text-muted)">No KQL analytics, no cost data</span></li>
-              <li><span class="lp-cap-icon" style="color:var(--text-muted)">—</span><span style="color:var(--text-muted)">Requires Connect Live (coming v2)</span></li>
+              <li><span class="lp-cap-icon" style="color:var(--text-muted)">—</span><span style="color:var(--text-muted)">No Entra ID display name resolution (coming soon)</span></li>
             </ul>
             <button class="lp-mode-btn" onclick="startQuickReport()">
               📋 Generate Quick Report
@@ -2656,6 +2656,10 @@ function renderAppGroups(){
         <div>
           <div class="ir"><span class="ir-k">Host Pool</span><span class="ir-v"><span class="pill p-cyan">${esc(ag.hostPoolName||'—')}</span></span></div>
           <div class="ir"><span class="ir-k">Workspace</span><span class="ir-v">${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</span></div>
+          <div class="ir"><span class="ir-k">Friendly Name</span><span class="ir-v">${esc(ag.friendlyName&&ag.friendlyName!==ag.name?ag.friendlyName:'—')}</span></div>
+          <div class="ir"><span class="ir-k">Resource Group</span><span class="ir-v">${esc(ag.resourceGroup||'—')}</span></div>
+          <div class="ir"><span class="ir-k">Location</span><span class="ir-v">${esc(ag.location||'—')}</span></div>
+          ${ag.description?`<div class="ir"><span class="ir-k">Description</span><span class="ir-v">${esc(ag.description)}</span></div>`:''}
           <div class="ir"><span class="ir-k">Diagnostics</span><span class="ir-v">${ag.diagnosticsEnabled?'<span class="pill p-green">Enabled</span>':'<span class="pill p-amber">Not Configured</span>'}</span></div>
         </div>
         <div>
@@ -2664,10 +2668,10 @@ function renderAppGroups(){
           <div class="ir"><span class="ir-k">Users</span><span class="ir-v">${users.length}</span></div>
         </div>
       </div>
-      ${all.length?`<div class="hp-sec-label">Assignments (${all.length}) — <span style="font-size:9px;font-weight:400">2 Entra ID Groups</span></div>
+      ${all.length?`<div class="hp-sec-label">Assignments (${all.length})</div>
       <div class="data-table-wrap"><table class="data-table">
-        <thead><tr><th>Principal</th><th>Type</th><th>Role</th></tr></thead>
-        <tbody>${all.map(a=>`<tr><td class="name-col">${esc(a.displayName||a.signInName||a.objectId||'—')}</td><td><span class="pill ${a.objectType==='Group'?'p-cyan':'p-gray'}">${esc(a.objectType||'—')}</span></td><td style="font-size:9px">${esc(a.role||'—')}</td></tr>`).join('')}</tbody>
+        <thead><tr><th>Principal</th><th>Type</th></tr></thead>
+        <tbody>${all.map(a=>{const stdRole='Desktop Virtualization User';const nonStd=a.role&&a.role!==stdRole?`<span class="pill p-amber" style="font-size:8px;margin-left:4px">${esc(a.role)}</span>`:'';return`<tr><td class="name-col">${esc(a.displayName||a.signInName||a.objectId||'—')}${nonStd}</td><td><span class="pill ${a.objectType==='Group'?'p-cyan':'p-gray'}">${esc(a.objectType||'—')}</span></td></tr>`;}).join('')}</tbody>
       </table></div>`:''}
       ${ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length?`<div class="hp-sec-label">Published Applications (${ag.remoteAppCount||0})</div>
       <div class="data-table-wrap"><table class="data-table">
@@ -3159,6 +3163,7 @@ function renderRBAC(){
   people.forEach(a=>{ (byRole[a.role]=byRole[a.role]||[]).push(a); });
   const spId='sp-rbac-'+Date.now();
   $('view-rbac').innerHTML=`<div class="section-hdr"><h2>RBAC Assignments</h2><span class="section-sub">Role-based access control for AVD resources</span></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f59e0b10;border:1px solid #f59e0b40;border-radius:6px;margin-bottom:14px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)"><span style="color:var(--amber);font-size:13px">&#9888;</span> Only AVD-specific roles are shown (Desktop Virtualization &amp; VM Login roles). Subscription-level roles (Owner, Contributor, Reader) are excluded — review Azure RBAC for full inheritance.</div>
   <div class="kpi-grid g4">
     <div class="kpi"><div class="kpi-label">User/Group Assignments</div><div class="kpi-value kv-cyan">${people.length}</div></div>
     <div class="kpi"><div class="kpi-label">Groups</div><div class="kpi-value">${people.filter(a=>a.objectType==='Group'||a.objectType==='ForeignGroup').length}</div></div>
@@ -3840,9 +3845,15 @@ function rbBuildMarkdown(){
     L.push('\n---\n## Application Groups\n');
     ags.forEach(ag=>{
       L.push(`### ${ag.name} [${ag.applicationGroupType}]`);
-      L.push(`- **Host Pool:** ${ag.hostPoolName||'—'} · **Workspace:** ${ag.workspaceFriendlyName||ag.workspaceName||'—'} · **Assignees:** ${ag.totalAssignees||0}`);
+      if(ag.friendlyName&&ag.friendlyName!==ag.name) L.push(`- **Friendly Name:** ${ag.friendlyName}`);
+      if(ag.description) L.push(`- **Description:** ${ag.description}`);
+      L.push(`- **Host Pool:** ${ag.hostPoolName||'—'} · **Workspace:** ${ag.workspaceFriendlyName||ag.workspaceName||'—'}`);
+      L.push(`- **Resource Group:** ${ag.resourceGroup||'—'} · **Location:** ${ag.location||'—'}`);
+      L.push(`- **Assignees:** ${ag.totalAssignees||0} (${arr(ag.assignedGroups).length} group${arr(ag.assignedGroups).length!==1?'s':''}, ${arr(ag.assignedUsers).length} user${arr(ag.assignedUsers).length!==1?'s':''})`);
+      L.push(`- **Diagnostics:** ${ag.diagnosticsEnabled?'Enabled':'Not Configured'}`);
       const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
-      if(allA.length){ L.push('\n**Assignments:**'); allA.forEach(a=>L.push(`- ${a.displayName||a.objectId||'—'} [${a.objectType}] — ${a.role||'—'}`)); }
+      const stdRole='Desktop Virtualization User';
+      if(allA.length){ L.push('\n**Assignments:**'); allA.forEach(a=>{ const nonStd=a.role&&a.role!==stdRole?` ⚠ ${a.role}`:''; L.push(`- ${a.displayName||a.objectId||'—'} [${a.objectType}]${nonStd}`); }); }
       if(ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length){ L.push('\n**Apps:**'); arr(ag.remoteApps).forEach(a=>L.push(`- \`${a.name}\` → \`${a.filePath||'—'}\``)); }
       L.push('');
     });
@@ -3863,6 +3874,7 @@ function rbBuildMarkdown(){
     const all=ags.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].map(a=>({...a,scope:ag.name})));
     if(all.length){
       L.push('\n---\n## RBAC Assignments\n');
+      L.push('> ⚠ Only AVD-specific roles are shown (Desktop Virtualization & VM Login roles). Subscription-level roles (Owner, Contributor, Reader) are excluded — review Azure RBAC for full inheritance.\n');
       L.push('| Principal | Type | Role | Scope |'); L.push('|-----------|------|------|-------|');
       all.forEach(a=>L.push(`| ${a.displayName||a.signInName||a.objectId||'—'} | ${a.objectType||'—'} | ${a.role||'—'} | ${a.scope||'—'} |`));
     }
@@ -4266,13 +4278,23 @@ function rbBuildHTMLDoc(){
     let agHtml = sectionHeader(secNum++, '⊡', 'Application Groups', `${ags.length} group${ags.length!==1?'s':''}`, 'sec-appgroups', `${ags.length} group${ags.length!==1?'s':''}`);
     ags.forEach(ag=>{
       const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
+      const stdRole='Desktop Virtualization User';
       agHtml += `<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <span style="font-weight:700;font-size:13px">${esc(ag.name)}</span>
           ${pill(ag.applicationGroupType||'Desktop', ag.applicationGroupType==='Desktop'?'blue':'purple')}
-          <span style="font-size:11px;color:#94a3b8;margin-left:auto">Host Pool: ${esc(ag.hostPoolName||'—')}</span>
+          ${ag.diagnosticsEnabled?pill('Diagnostics On','green'):pill('No Diagnostics','amber')}
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">${ag.totalAssignees||0} assigned</span>
         </div>
-        ${allA.length?docTable(['Principal','Type','Role'],allA.map(a=>[esc(a.displayName||a.signInName||a.objectId||'—'),pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray'),esc(a.role||'—')])):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
+          <span><b>Host Pool:</b> ${esc(ag.hostPoolName||'—')}</span>
+          <span><b>Workspace:</b> ${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</span>
+          <span><b>Resource Group:</b> ${esc(ag.resourceGroup||'—')}</span>
+          <span><b>Location:</b> ${esc(ag.location||'—')}</span>
+          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<span><b>Friendly Name:</b> ${esc(ag.friendlyName)}</span>`:''}
+          ${ag.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ag.description)}</span>`:''}
+        </div>
+        ${allA.length?docTable(['Principal','Type'],allA.map(a=>{const nonStd=a.role&&a.role!==stdRole?` <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px">${esc(a.role)}</span>`:'';return[esc(a.displayName||a.signInName||a.objectId||'—')+nonStd,pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray')];})):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
         ${ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length?'<p style="font-size:10px;color:#64748b;margin-top:6px">Apps: '+arr(ag.remoteApps).map(a=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:10px">${esc(a.friendlyName||a.name||'—')}</code>`).join(' ')+'</p>':''}
       </div>`;
     });
@@ -4549,6 +4571,7 @@ function rbBuildHTMLDoc(){
       const users=all.filter(a=>a.objectType==='User').length;
       const direct=all.filter(a=>a.objectType==='User').length;
       let rbacHtml = sectionHeader(secNum++, '🔑', 'RBAC Assignments', `${all.length} assignment${all.length!==1?'s':''}`, 'sec-rbac', `${all.length} assignment${all.length!==1?'s':''}`);
+      rbacHtml += `<p style="font-size:10px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;margin-bottom:10px">⚠ Only AVD-specific roles are shown (Desktop Virtualization &amp; VM Login roles). Subscription-level roles (Owner, Contributor, Reader) are excluded — review Azure RBAC for full inheritance.</p>`;
       rbacHtml += kpiRow(
         kpiBox('Total Assignments', all.length, '', 'cyan'),
         kpiBox('Group Assignments', groups, 'best practice', 'green'),
@@ -5038,7 +5061,7 @@ async function rbBuildDOCX(sub){
       // User Sessions
       if(secFn('sessions')&&sessions.length){ const active=sessions.filter(s=>s.sessionState==='Active'),disc=sessions.filter(s=>s.sessionState==='Disconnected'); children.push(pageBreak()); children.push(sectionH(secNum++,'User Sessions',`${sessions.length} session${sessions.length!==1?'s':''}`)); children.push(kpiTable([{label:'Total',value:sessions.length,colour:'cyan'},{label:'Active',value:active.length,colour:'green'},{label:'Disconnected',value:disc.length,colour:disc.length>0?'amber':'green'},{label:'Unique Users',value:new Set(sessions.map(s=>s.userPrincipalName).filter(Boolean)).size,colour:'blue'}])); children.push(dataTable(['User','State','Session Host','Host Pool','Type','Connected'],sessions.map(s=>[s.userPrincipalName||'Unknown',s.sessionState||'—',(s.sessionHostName||'—').split('.')[0],s.hostPoolName||'—',s.applicationType||'Desktop',s.createTime||'—']))); }
       // RBAC
-      if(secFn('rbac')){ const all=ags.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].map(a=>({...a,scope:ag.name}))); if(all.length){ const groups=all.filter(a=>a.objectType==='Group').length,direct=all.filter(a=>a.objectType==='User').length; children.push(pageBreak()); children.push(sectionH(secNum++,'RBAC Assignments',`${all.length} total`)); children.push(kpiTable([{label:'Total',value:all.length,colour:'cyan'},{label:'Groups',value:groups,colour:'green'},{label:'Direct Users',value:direct,colour:direct>0?'amber':'green'},{label:'Roles',value:new Set(all.map(a=>a.role).filter(Boolean)).size,colour:'blue'}])); children.push(dataTable(['Principal','Type','Role','Scope'],all.map(a=>[a.displayName||a.signInName||a.objectId||'—',a.objectType||'—',a.role||'—',a.scope||'—']))); } }
+      if(secFn('rbac')){ const all=ags.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].map(a=>({...a,scope:ag.name}))); if(all.length){ const groups=all.filter(a=>a.objectType==='Group').length,direct=all.filter(a=>a.objectType==='User').length; children.push(pageBreak()); children.push(sectionH(secNum++,'RBAC Assignments',`${all.length} total`)); children.push(para([run('⚠ Only AVD-specific roles are shown (Desktop Virtualization & VM Login roles). Subscription-level roles (Owner, Contributor, Reader) are excluded — review Azure RBAC for full inheritance.',{color:'#92400e',size:sz(8)})],{before:sz(2),after:sz(4)})); children.push(kpiTable([{label:'Total',value:all.length,colour:'cyan'},{label:'Groups',value:groups,colour:'green'},{label:'Direct Users',value:direct,colour:direct>0?'amber':'green'},{label:'Roles',value:new Set(all.map(a=>a.role).filter(Boolean)).size,colour:'blue'}])); children.push(dataTable(['Principal','Type','Role','Scope'],all.map(a=>[a.displayName||a.signInName||a.objectId||'—',a.objectType||'—',a.role||'—',a.scope||'—']))); } }
       // Cost
       if(secFn('cost')&&s.costAvailable){ const hpCosts=hps.filter(hp=>hp.currentMonthCost!=null).sort((a,b)=>b.currentMonthCost-a.currentMonthCost); const p3=costProjection(s.currentMonthCost,D?.generatedAt); children.push(pageBreak()); children.push(sectionH(secNum++,'Cost & FinOps','Month-to-Date')); children.push(kpiTable([{label:'Prev Month',value:s.previousMonthCost!=null?`${cur} ${s.previousMonthCost.toFixed(0)}`:'—',colour:'gray'},{label:'MTD',value:`${cur} ${s.currentMonthCost?.toFixed(0)||'—'}`,colour:'cyan'},{label:'Projected EOM',value:p3?`${cur} ${p3.toFixed(0)}`:'—',colour:'amber'},{label:'Wasted',value:s.wastedSpendEstimate?`${cur} ${s.wastedSpendEstimate.toFixed(0)}`:'—',colour:s.wastedSpendEstimate>0?'amber':'green'}])); if(s.previousMonthCost!=null&&p3!=null){const delta=p3-s.previousMonthCost,pct=Math.round((delta/s.previousMonthCost)*100);children.push(para([new TextRun({text:(delta>0?'↑ ':'↓ '),font:'Calibri',size:sz(14),bold:true,color:delta>0?C.RED:C.GREEN}),run(`${delta>0?'+':''}${cur} ${Math.abs(delta).toFixed(2)} (${delta>0?'+':''}${pct}%) vs last month`,{bold:true,color:delta>0?C.RED:C.GREEN})],{after:100}));} if(hpCosts.length){children.push(subH('Cost by Host Pool'));children.push(dataTable(['Host Pool','Cost MTD','% of Total'],hpCosts.map(hp=>[hp.name,`${cur} ${hp.currentMonthCost.toFixed(2)}`,Math.round((hp.currentMonthCost/(s.currentMonthCost||1))*100)+'%'])));} }
       // FSLogix
@@ -5230,6 +5253,8 @@ const KNOWN_ROLES = {
   '0fa44ee9-7a7d-466b-9bb2-2bf446b1204d': 'Desktop Virtualization Workspace Reader',
   'ea4bfff8-7fb4-485a-aadd-d4129a0ffaa6': 'Desktop Virtualization User Session Operator',
   '2ad6aa64-aba4-4f28-96f3-253c89f8e7e5': 'Desktop Virtualization Session Host Operator',
+  '9980e02c-c2be-4d73-94e8-173b1dc7cf3c': 'Virtual Machine User Login',
+  '1c0163c0-47e6-4577-8991-ea5c82e286e4': 'Virtual Machine Administrator Login',
   'acdd72a7-3385-48ef-bd42-f606fba81ae7': 'Reader',
   'b24988ac-6180-42a0-ab88-20f7382dd24c': 'Contributor',
   '8e3af657-a8ff-443c-a75c-2fe8c4bcb635': 'Owner'
@@ -5263,7 +5288,13 @@ async function qrCollect() {
   function armGet(path) {
     return fetch('https://management.azure.com' + path, {
       headers: { Authorization: 'Bearer ' + qrToken }
-    }).then(function(r) { return r.json(); });
+    }).then(function(r) {
+      if(r.status===401) throw new Error('Authentication failed or token expired. Please sign in again.');
+      if(r.status===403) throw new Error('Access denied (403) — your account lacks Reader or Desktop Virtualization Reader permissions on: ' + path.split('?')[0].split('/providers/')[1]);
+      if(r.status===404) return {value:[]};
+      if(!r.ok) throw new Error('Azure API error ' + r.status + ' on: ' + path.split('?')[0].split('/providers/')[1]);
+      return r.json();
+    });
   }
 
   try {
@@ -5300,6 +5331,24 @@ async function qrCollect() {
         allRoleAssignments[ag.id] = raResp.value || [];
         console.log('[RBAC] AG:', ag.name, '— assignments:', (raResp.value||[]).map(r=>({principalId:r.properties?.principalId, principalType:r.properties?.principalType, roleId:(r.properties?.roleDefinitionId||'').split('/').pop()})));
       } catch(e) { allRoleAssignments[ag.id] = []; }
+    }
+
+    // ── RemoteApps per App Group ───────────────────────────────────
+    qrProgress('Collecting published applications...', 45);
+    const allRemoteApps = {};
+    for (let i = 0; i < rawAGs.length; i++) {
+      const ag = rawAGs[i];
+      if ((ag.properties||{}).applicationGroupType !== 'RemoteApp') continue;
+      const agRg = (ag.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'';
+      try {
+        const appsResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + agRg
+          + '/providers/Microsoft.DesktopVirtualization/applicationGroups/' + ag.name
+          + '/applications?api-version=2023-09-05');
+        allRemoteApps[ag.id] = (appsResp.value||[]).map(function(a){
+          const ap = a.properties||{};
+          return { name:a.name, friendlyName:ap.friendlyName||a.name, description:ap.description||'', filePath:ap.filePath||'', commandLineArguments:ap.commandLineArguments||'', showInPortal:ap.showInPortal!==false };
+        });
+      } catch(e) { allRemoteApps[ag.id] = []; }
     }
 
     // ── Resolve role GUIDs → friendly names ────────────────────────
@@ -5492,10 +5541,37 @@ async function qrCollect() {
         const users = [], groups = [];
         ras.forEach(function(ra){
           const p = ra.properties || {};
-          const entry = { objectId:p.principalId||'', objectType:p.principalType||'ServicePrincipal', role:roleNameMap[(p.roleDefinitionId||'').split('/').pop()]||(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
+          const roleGuid = (p.roleDefinitionId||'').split('/').pop();
+          const roleName = roleNameMap[roleGuid]||'';
+          const isAvd = roleName.startsWith('Desktop Virtualization')||roleName==='Virtual Machine User Login'||roleName==='Virtual Machine Administrator Login';
+          if(!isAvd) return;
+          const entry = { objectId:p.principalId||'', objectType:p.principalType||'ServicePrincipal', role:roleName, displayName:'', signInName:'' };
           if(p.principalType==='Group') groups.push(entry); else users.push(entry);
         });
-        return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'', assignedUsers:users, assignedGroups:groups };
+        const agProps = a.properties || {};
+        const agHostPoolId = agProps.hostPoolArmPath || '';
+        const wsMatch = rawWSs.find(function(w){ return ((w.properties||{}).applicationGroupReferences||[]).some(function(ref){ return ref.toLowerCase()===a.id.toLowerCase(); }); });
+        return {
+          name:                 a.name,
+          id:                   a.id,
+          resourceGroup:        (a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'',
+          location:             a.location||'',
+          tags:                 a.tags||{},
+          friendlyName:         agProps.friendlyName||a.name,
+          description:          agProps.description||'',
+          applicationGroupType: agProps.applicationGroupType||'',
+          hostPoolId:           agHostPoolId,
+          hostPoolName:         agHostPoolId.split('/').pop(),
+          workspaceId:          wsMatch ? wsMatch.id : '',
+          workspaceName:        wsMatch ? wsMatch.name : '',
+          workspaceFriendlyName:wsMatch ? ((wsMatch.properties||{}).friendlyName||wsMatch.name) : '',
+          assignedUsers:        users,
+          assignedGroups:       groups,
+          totalAssignees:       users.length + groups.length,
+          diagnosticsEnabled:   false,
+          remoteApps:           allRemoteApps[a.id]||[],
+          remoteAppCount:       (allRemoteApps[a.id]||[]).length
+        };
       }),
       scalingPlans:     [],
       metrics:          { querySupported:false, queriesRun:[], queriesSkipped:[] },
