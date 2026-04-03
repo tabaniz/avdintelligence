@@ -3153,23 +3153,31 @@ function renderRBAC(){
   const ags=arr(D.applicationGroups);
   const all=ags.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].map(a=>({...a,scope:ag.name})));
   const seen=new Set(), unique=all.filter(a=>{ const k=(a.objectId||a.displayName||'')+'|'+a.role+'|'+a.scope; if(seen.has(k))return false; seen.add(k); return true; });
+  const people=unique.filter(a=>a.objectType==='User'||a.objectType==='Group'||a.objectType==='ForeignGroup');
+  const svcPrincipals=unique.filter(a=>a.objectType==='ServicePrincipal'||(!a.objectType&&a.objectId));
   const byRole={};
-  unique.forEach(a=>{ (byRole[a.role]=byRole[a.role]||[]).push(a); });
+  people.forEach(a=>{ (byRole[a.role]=byRole[a.role]||[]).push(a); });
+  const spId='sp-rbac-'+Date.now();
   $('view-rbac').innerHTML=`<div class="section-hdr"><h2>RBAC Assignments</h2><span class="section-sub">Role-based access control for AVD resources</span></div>
   <div class="kpi-grid g4">
-    <div class="kpi"><div class="kpi-label">Total Assignments</div><div class="kpi-value kv-cyan">${unique.length}</div></div>
-    <div class="kpi"><div class="kpi-label">Groups</div><div class="kpi-value">${unique.filter(a=>a.objectType==='Group').length}</div></div>
-    <div class="kpi"><div class="kpi-label">Users</div><div class="kpi-value">${unique.filter(a=>a.objectType==='User').length}</div></div>
+    <div class="kpi"><div class="kpi-label">User/Group Assignments</div><div class="kpi-value kv-cyan">${people.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Groups</div><div class="kpi-value">${people.filter(a=>a.objectType==='Group'||a.objectType==='ForeignGroup').length}</div></div>
+    <div class="kpi"><div class="kpi-label">Direct Users</div><div class="kpi-value kv-${people.filter(a=>a.objectType==='User').length>0?'amber':'green'}">${people.filter(a=>a.objectType==='User').length}</div></div>
     <div class="kpi"><div class="kpi-label">Distinct Roles</div><div class="kpi-value">${Object.keys(byRole).length}</div></div>
   </div>
-  <div class="card"><div class="card-title">Access Permissions</div>
+  <div class="card"><div class="card-title">User &amp; Group Assignments</div>
   <div class="search-bar"><span class="search-icon">⌕</span><input placeholder="Filter by principal, role, scope…" oninput="filterTable('rbac-t',this.value)"></div>
   <div class="data-table-wrap" style="max-height:480px;overflow-y:auto"><table class="data-table" id="rbac-t">
-    <thead><tr><th>Principal</th><th>Type</th><th>Role</th><th>Scope Type</th><th>Scope</th></tr></thead>
-    <tbody>${unique.map(a=>`<tr data-search="${esc(((a.displayName||'')+(a.signInName||'')+(a.role||'')+(a.scope||'')).toLowerCase())}"><td class="name-col">${esc(a.displayName||a.signInName||a.objectId||'—')}</td><td><span class="pill ${a.objectType==='Group'?'p-cyan':'p-gray'}">${esc(a.objectType||'—')}</span></td><td><span class="pill p-purple" style="font-size:9px">${esc(a.role||'—')}</span></td><td><span class="pill p-blue" style="font-size:8px">Resource</span></td><td style="font-size:9px;color:var(--text-muted)">${esc(a.scope||'—')}</td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No RBAC data</td></tr>'}</tbody>
+    <thead><tr><th>Principal</th><th>Type</th><th>Role</th><th>Scope</th></tr></thead>
+    <tbody>${people.map(a=>`<tr data-search="${esc(((a.displayName||'')+(a.signInName||'')+(a.role||'')+(a.scope||'')).toLowerCase())}"><td class="name-col">${esc(a.displayName||a.signInName||a.objectId||'—')}</td><td><span class="pill ${a.objectType==='Group'||a.objectType==='ForeignGroup'?'p-cyan':'p-gray'}">${esc(a.objectType||'—')}</span></td><td><span class="pill p-purple" style="font-size:9px">${esc(a.role||'—')}</span></td><td style="font-size:9px;color:var(--text-muted)">${esc(a.scope||'—')}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No user or group assignments found</td></tr>'}</tbody>
   </table></div></div>
   ${Object.entries(byRole).length?`<div class="card"><div class="card-title">Role Breakdown</div>
-  ${Object.entries(byRole).map(([role,members])=>`<div class="score-bar-wrap"><div class="score-bar-label">${esc(role.length>28?role.slice(0,26)+'…':role)}</div><div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.round((members.length/Math.max(unique.length,1))*100)}%;background:var(--cyan)"></div></div><div class="score-bar-val">${members.length}</div></div>`).join('')}</div>`:''}`;
+  ${Object.entries(byRole).map(([role,members])=>`<div class="score-bar-wrap"><div class="score-bar-label">${esc(role.length>28?role.slice(0,26)+'…':role)}</div><div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.round((members.length/Math.max(people.length,1))*100)}%;background:var(--cyan)"></div></div><div class="score-bar-val">${members.length}</div></div>`).join('')}</div>`:''}
+  ${svcPrincipals.length?`<div class="card"><div class="card-title" style="cursor:pointer" onclick="toggleColl('${spId}',this)">⚙ Service Principal Assignments <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">(${svcPrincipals.length}) — click to expand</span></div>
+  <div id="${spId}" style="display:none"><div class="data-table-wrap" style="max-height:320px;overflow-y:auto"><table class="data-table">
+    <thead><tr><th>Object ID</th><th>Role</th><th>Scope</th></tr></thead>
+    <tbody>${svcPrincipals.map(a=>`<tr><td class="name-col" style="font-size:9px">${esc(a.objectId||'—')}</td><td><span class="pill p-purple" style="font-size:9px">${esc(a.role||'—')}</span></td><td style="font-size:9px;color:var(--text-muted)">${esc(a.scope||'—')}</td></tr>`).join('')}</tbody>
+  </table></div></div></div>`:''}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3412,7 +3420,7 @@ function renderCost(){
   }
   const proj = costProjection(s.currentMonthCost, D.generatedAt);
   const hpCosts=hps.filter(hp=>hp.currentMonthCost!=null).sort((a,b)=>b.currentMonthCost-a.currentMonthCost);
-  const maxVal=Math.max(s.previousMonthCost||0, proj||s.currentMonthCost||0, 1);
+  const maxVal=Math.max(s.previousMonthCost||0, proj||s.currentMonthCost||0, 1)*1.1;
 
   $('view-cost').innerHTML=`
   <div class="section-hdr"><h2>Cost &amp; FinOps</h2><span class="section-sub">Azure Cost Management · Month comparison</span></div>
