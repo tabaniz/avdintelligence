@@ -5459,8 +5459,53 @@ async function qrCollect() {
       }
     });
 
+    // ── Scaling Plans ─────────────────────────────────────────────────
+    qrProgress('Collecting scaling plans...', 75);
+    const rawSPs = [];
+    try {
+      const spResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.DesktopVirtualization/scalingPlans?api-version=2023-09-05');
+      (spResp.value || []).forEach(function(sp) {
+        const spRg = (sp.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'';
+        const props = sp.properties || {};
+        rawSPs.push({
+          name:          sp.name,
+          id:            sp.id,
+          resourceGroup: spRg,
+          location:      sp.location || '',
+          friendlyName:  props.friendlyName || sp.name,
+          hostPoolType:  props.hostPoolType || '',
+          hostPoolReferences: (props.hostPoolReferences||[]).map(function(r){ return { hostPoolId: r.hostPoolArmPath, scalingPlanEnabled: r.scalingPlanEnabled }; }),
+          schedules:     []
+        });
+      });
+    } catch(e) { console.warn('Scaling plans unavailable:', e.message); }
+
+    // ── RG Inventory ───────────────────────────────────────────────────
+    qrProgress('Collecting resource groups...', 82);
+    const rawRGs = [];
+    try {
+      const rgResp = await armGet('/subscriptions/' + subId + '/resourcegroups?api-version=2021-04-01');
+      // Collect unique RGs that contain AVD or VM resources
+      const avdRgNames = new Set();
+      rawHPs.forEach(function(hp){ const m=hp.id.match(/resourceGroups\/([^/]+)\//i); if(m) avdRgNames.add(m[1].toLowerCase()); });
+      allSessionHosts.forEach(function(sh){ if(sh.resourceGroup) avdRgNames.add(sh.resourceGroup.toLowerCase()); });
+
+      for (const rg of (rgResp.value||[])) {
+        if (!avdRgNames.has(rg.name.toLowerCase())) continue;
+        try {
+          const resResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + rg.name + '/resources?api-version=2021-04-01');
+          const resources = (resResp.value||[]).map(function(r){
+            const t = r.type || '';
+            const shortTypes = { 'Microsoft.Compute/virtualMachines':'Virtual Machine','Microsoft.Compute/disks':'Managed Disk','Microsoft.Network/networkInterfaces':'NIC','Microsoft.Network/virtualNetworks':'Virtual Network','Microsoft.Network/networkSecurityGroups':'NSG','Microsoft.DesktopVirtualization/hostpools':'Host Pool','Microsoft.DesktopVirtualization/workspaces':'Workspace','Microsoft.DesktopVirtualization/applicationgroups':'App Group','Microsoft.Storage/storageAccounts':'Storage Account','Microsoft.KeyVault/vaults':'Key Vault' };
+            return { name:r.name, type:t, shortType:shortTypes[t]||t.split('/').pop(), location:r.location||'' };
+          });
+          rawRGs.push({ name:rg.name, id:rg.id, location:rg.location||'', tags:{}, resources:resources, resourceCount:resources.length });
+        } catch(e) { /* skip RG if resources call fails */ }
+      }
+    } catch(e) { console.warn('RG inventory unavailable:', e.message); }
+
     // ── Build D shape ─────────────────────────────────────────────────
-    qrProgress('Building report...', 90);
+    qrProgress('Building report...', 92);
     const now = new Date().toISOString();
 
     const hostPools = rawHPs.map(function(hp) {
@@ -5520,6 +5565,20 @@ async function qrCollect() {
       };
     });
 
+
+    // Link scaling plans to host pools
+    rawSPs.forEach(function(sp) {
+      (sp.hostPoolReferences||[]).forEach(function(ref) {
+        const hp = hostPools.find(function(h){ return h.id === ref.hostPoolId; });
+        if (hp) {
+          hp.hasScalingPlan = true;
+          hp.scalingPlanCount = (hp.scalingPlanCount||0) + 1;
+          if (!hp.scalingPlans) hp.scalingPlans = [];
+          hp.scalingPlans.push({ name: sp.name, id: sp.id });
+        }
+      });
+    });
+
     const totalSHs    = allSessionHosts.length;
     const availSHs    = allSessionHosts.filter(function(s){ return s.status==='Available'; }).length;
     const activeSess  = allSessions.filter(function(s){ return s.sessionState==='Active'; }).length;
@@ -5573,11 +5632,11 @@ async function qrCollect() {
           remoteAppCount:       (allRemoteApps[a.id]||[]).length
         };
       }),
-      scalingPlans:     [],
+      scalingPlans:     rawSPs,
       metrics:          { querySupported:false, queriesRun:[], queriesSkipped:[] },
       networking:       null,
       fslogixCoverage:  { hostsWithout:[], storageAccounts:[] },
-      resourceGroups:   [],
+      resourceGroups:   rawRGs,
       imageDrift:       {},
       summary: {
         hostPoolCount:         hostPools.length,
@@ -5594,7 +5653,7 @@ async function qrCollect() {
         avdWorkspaceCount:     rawWSs.length,
         applicationGroupCount: rawAGs.length,
         scalingPlanCount:      0,
-        hostPoolsWithoutScaling: hostPools.length,
+        hostPoolsWithoutScaling: hostPools.filter(function(h){ return !h.hasScalingPlan; }).length,
         hostPoolsWithDiagnostics:    hostPools.filter(function(h){ return h.diagnosticsEnabled; }).length,
         hostPoolsWithoutDiagnostics: hostPools.filter(function(h){ return !h.diagnosticsEnabled; }).length,
         hostsWithFSLogixDetected: 0,
