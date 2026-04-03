@@ -3478,7 +3478,7 @@ function renderCost(){
     <div class="card-title">Cost by Host Pool</div>
     ${hpCosts.map(hp=>`<div class="score-bar-wrap">
       <div class="score-bar-label">${esc(hp.name)}</div>
-      <div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.round((hp.currentMonthCost/(hpCosts[0].currentMonthCost||1))*100)}%;background:var(--cyan)"></div></div>
+      <div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.min(Math.round((hp.currentMonthCost/(hpCosts[0].currentMonthCost||1))*100),100)}%;background:var(--cyan)"></div></div>
       <div class="score-bar-val" style="width:90px">${fmtCur(hp.currentMonthCost,cur)}</div>
     </div>`).join('')}
   </div>`:''}
@@ -5210,6 +5210,23 @@ function qrCancel() {
   if (btn) { btn.disabled = false; btn.textContent = 'Generate Quick Report'; }
 }
 
+const KNOWN_ROLES = {
+  '1d18fff3-a72a-46b5-b4a9-0b38a3cd7e63': 'Desktop Virtualization User',
+  '082f0a83-3be5-4ba1-904c-961cca79b387': 'Desktop Virtualization Contributor',
+  '49a72310-ab8d-41df-bbb0-79b649203868': 'Desktop Virtualization Reader',
+  'e307426c-f9b6-4e81-87de-d99efb3c32bc': 'Desktop Virtualization Host Pool Contributor',
+  'ceadfde2-b300-400a-ab7b-6143895aa822': 'Desktop Virtualization Host Pool Reader',
+  '86240b0e-9422-4c43-887b-b61143f32ba8': 'Desktop Virtualization Application Group Contributor',
+  'aebf23d0-b568-4e86-b8f9-fe83a2c6ab55': 'Desktop Virtualization Application Group Reader',
+  '21efdde3-836f-432b-bf3d-3e8e734d4b2b': 'Desktop Virtualization Workspace Contributor',
+  '0fa44ee9-7a7d-466b-9bb2-2bf446b1204d': 'Desktop Virtualization Workspace Reader',
+  'ea4bfff8-7fb4-485a-aadd-d4129a0ffaa6': 'Desktop Virtualization User Session Operator',
+  '2ad6aa64-aba4-4f28-96f3-253c89f8e7e5': 'Desktop Virtualization Session Host Operator',
+  'acdd72a7-3385-48ef-bd42-f606fba81ae7': 'Reader',
+  'b24988ac-6180-42a0-ab88-20f7382dd24c': 'Contributor',
+  '8e3af657-a8ff-443c-a75c-2fe8c4bcb635': 'Owner'
+};
+
 async function qrCollect() {
   const sel = document.getElementById('qr-sub');
   const subId = sel ? sel.value : null;
@@ -5274,6 +5291,22 @@ async function qrCollect() {
           + '/providers/microsoft.authorization/roleAssignments?api-version=2022-04-01');
         allRoleAssignments[ag.id] = raResp.value || [];
       } catch(e) { allRoleAssignments[ag.id] = []; }
+    }
+
+    // ── Resolve role GUIDs → friendly names ────────────────────────
+    const roleNameMap = {...KNOWN_ROLES};
+    const unknownGuids = new Set();
+    Object.values(allRoleAssignments).forEach(function(ras){
+      ras.forEach(function(ra){
+        const guid = (ra.properties?.roleDefinitionId||'').split('/').pop();
+        if(guid && !roleNameMap[guid]) unknownGuids.add(guid);
+      });
+    });
+    for(const guid of unknownGuids){
+      try {
+        const rdResp = await armGet('/subscriptions/'+subId+'/providers/Microsoft.Authorization/roleDefinitions/'+guid+'?api-version=2022-04-01');
+        if(rdResp.properties?.roleName) roleNameMap[guid] = rdResp.properties.roleName;
+      } catch(e) { /* keep GUID as fallback */ }
     }
 
     // ── Session Hosts + Sessions per Host Pool ───────────────────────
@@ -5450,7 +5483,7 @@ async function qrCollect() {
         const users = [], groups = [];
         ras.forEach(function(ra){
           const p = ra.properties || {};
-          const entry = { objectId:p.principalId||'', objectType:p.principalType||'User', role:(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
+          const entry = { objectId:p.principalId||'', objectType:p.principalType||'User', role:roleNameMap[(p.roleDefinitionId||'').split('/').pop()]||(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
           if(p.principalType==='Group') groups.push(entry); else users.push(entry);
         });
         return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'', assignedUsers:users, assignedGroups:groups };
