@@ -5298,6 +5298,7 @@ async function qrCollect() {
           + '/providers/Microsoft.DesktopVirtualization/applicationGroups/' + ag.name
           + '/providers/microsoft.authorization/roleAssignments?api-version=2022-04-01');
         allRoleAssignments[ag.id] = raResp.value || [];
+        console.log('[RBAC] AG:', ag.name, '— assignments:', (raResp.value||[]).map(r=>({principalId:r.properties?.principalId, principalType:r.properties?.principalType, roleId:(r.properties?.roleDefinitionId||'').split('/').pop()})));
       } catch(e) { allRoleAssignments[ag.id] = []; }
     }
 
@@ -5491,7 +5492,7 @@ async function qrCollect() {
         const users = [], groups = [];
         ras.forEach(function(ra){
           const p = ra.properties || {};
-          const entry = { objectId:p.principalId||'', objectType:p.principalType||'User', role:roleNameMap[(p.roleDefinitionId||'').split('/').pop()]||(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
+          const entry = { objectId:p.principalId||'', objectType:p.principalType||'ServicePrincipal', role:roleNameMap[(p.roleDefinitionId||'').split('/').pop()]||(p.roleDefinitionId||'').split('/').pop(), displayName:'', signInName:'' };
           if(p.principalType==='Group') groups.push(entry); else users.push(entry);
         });
         return { name:a.name, id:a.id, resourceGroup:(a.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', hostPoolName:((a.properties||{}).hostPoolArmPath||'').split('/').pop(), applicationGroupType:(a.properties||{}).applicationGroupType||'', assignedUsers:users, assignedGroups:groups };
