@@ -4207,51 +4207,79 @@ function rbBuildHTMLDoc(){
 
   // ── 2. OVERVIEW ────────────────────────────────────────────────
   if(sec('overview')){
+    const isLive = D?.displayConfig?.isLiveMode===true;
     let ovHtml = sectionHeader(secNum++, '⬛', 'Infrastructure Overview', `${D?.subscriptionName||sub}`, 'sec-overview', `${D?.subscriptionName||sub}`);
-    ovHtml += kpiRow(
-      kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
-      kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
-      kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
-      kpiBox('FSLogix Coverage', (s.hostsWithFSLogixDetected||0)+'/'+s.totalSessionHosts, '', s.hostsWithFSLogixDetected===s.totalSessionHosts?'green':'amber')
-    );
-    // AVD Insights / Diagnostics completeness
-    const insightsSumm=getInsightsSummary(hps);
-    if(insightsSumm.total>0){
-      const iCol=insightsSumm.complete===insightsSumm.total?'green':insightsSumm.disabled===insightsSumm.total?'red':'amber';
+
+    if(isLive){
+      const shs=arr(D?.sessionHosts).length?arr(D?.sessionHosts):hps.flatMap(hp=>arr(hp.sessionHosts));
+      const availSHs  =shs.filter(sh=>sh.status==='Available').length;
+      const unavailSHs=shs.filter(sh=>sh.status==='Unavailable').length;
+      const shutdownSHs=shs.filter(sh=>sh.status==='Shutdown').length;
+      const drainSHs  =shs.filter(sh=>sh.drainMode).length;
+      const liveAgs=arr(D?.applicationGroups);
+      const liveAssignees=liveAgs.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)]);
       ovHtml += kpiRow(
-        kpiBox('AVD Diagnostics', insightsSumm.complete+'/'+insightsSumm.total, insightsSumm.complete===insightsSumm.total?'All complete':'Gaps detected', iCol),
-        kpiBox('Full Coverage', insightsSumm.complete, 'all 6 categories enabled', insightsSumm.complete===insightsSumm.total?'green':'amber'),
-        kpiBox('Partial', insightsSumm.partial, 'missing categories', insightsSumm.partial>0?'amber':'green'),
-        kpiBox('Unconfigured', insightsSumm.disabled, 'no diagnostics at all', insightsSumm.disabled>0?'red':'green')
+        kpiBox('Host Pools', s.hostPoolCount||0, `${s.pooledHostPools||0} pooled · ${s.personalHostPools||0} personal`, 'cyan'),
+        kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
+        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
+        kpiBox('Session Hosts', s.totalSessionHosts||0, `${s.availableHosts||0} available`, 'green')
       );
-      if(insightsSumm.complete<insightsSumm.total){
-        ovHtml += '<div style="margin-top:10px">';
-        insightsSumm.details.filter(r=>!r.complete).forEach(r=>{
-          const bc=r.enabled?'#fef9c3':'#fee2e2', bc2=r.enabled?'#ca8a04':'#dc2626';
-          ovHtml += '<div style="background:'+bc+';border-left:4px solid '+bc2+';border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:6px;font-size:11px">'
-            +'<strong style="color:'+bc2+'">'+esc(r.name)+'</strong> — '
-            +(r.enabled
-              ? 'Diagnostics configured but missing: <code style="font-size:9px;background:#fef3c7;padding:1px 4px;border-radius:2px">'+r.missing.join('</code>, <code style="font-size:9px;background:#fef3c7;padding:1px 4px;border-radius:2px">')+'</code>. Some AVD Insights queries will not return data.'
-              : 'No diagnostic settings — AVD Insights is non-functional for this host pool. Configure diagnostics to enable monitoring.'
-            )+'</div>';
-        });
-        ovHtml += '</div>';
+      ovHtml += kpiRow(
+        kpiBox('Active Sessions', s.totalActiveSessions||0, `${s.totalDisconnectedSessions||0} disconnected`, 'green'),
+        kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan'),
+        kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
+        kpiBox('Resource Groups', arr(D?.resourceGroups).length, '', 'blue')
+      );
+      ovHtml += docTable(
+        ['Session Host Status','Count'],
+        [['Available',availSHs],['Unavailable',unavailSHs],['Shutdown',shutdownSHs],['Drain Mode',drainSHs]],
+        {colWidths:['60%','40%']}
+      );
+    } else {
+      ovHtml += kpiRow(
+        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
+        kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
+        kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
+        kpiBox('FSLogix Coverage', (s.hostsWithFSLogixDetected||0)+'/'+s.totalSessionHosts, '', s.hostsWithFSLogixDetected===s.totalSessionHosts?'green':'amber')
+      );
+      const insightsSumm=getInsightsSummary(hps);
+      if(insightsSumm.total>0){
+        const iCol=insightsSumm.complete===insightsSumm.total?'green':insightsSumm.disabled===insightsSumm.total?'red':'amber';
+        ovHtml += kpiRow(
+          kpiBox('AVD Diagnostics', insightsSumm.complete+'/'+insightsSumm.total, insightsSumm.complete===insightsSumm.total?'All complete':'Gaps detected', iCol),
+          kpiBox('Full Coverage', insightsSumm.complete, 'all 6 categories enabled', insightsSumm.complete===insightsSumm.total?'green':'amber'),
+          kpiBox('Partial', insightsSumm.partial, 'missing categories', insightsSumm.partial>0?'amber':'green'),
+          kpiBox('Unconfigured', insightsSumm.disabled, 'no diagnostics at all', insightsSumm.disabled>0?'red':'green')
+        );
+        if(insightsSumm.complete<insightsSumm.total){
+          ovHtml += '<div style="margin-top:10px">';
+          insightsSumm.details.filter(r=>!r.complete).forEach(r=>{
+            const bc=r.enabled?'#fef9c3':'#fee2e2', bc2=r.enabled?'#ca8a04':'#dc2626';
+            ovHtml += '<div style="background:'+bc+';border-left:4px solid '+bc2+';border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:6px;font-size:11px">'
+              +'<strong style="color:'+bc2+'">'+esc(r.name)+'</strong> — '
+              +(r.enabled
+                ? 'Diagnostics configured but missing: <code style="font-size:9px;background:#fef3c7;padding:1px 4px;border-radius:2px">'+r.missing.join('</code>, <code style="font-size:9px;background:#fef3c7;padding:1px 4px;border-radius:2px">')+'</code>. Some AVD Insights queries will not return data.'
+                : 'No diagnostic settings — AVD Insights is non-functional for this host pool. Configure diagnostics to enable monitoring.'
+              )+'</div>';
+          });
+          ovHtml += '</div>';
+        }
       }
-    }
-    ovHtml += docTable(
-      ['Property','Value'],
-      [
-        ['Subscription', sub],
-        ['Tenant', D?.tenantName||D?.tenantId||'—'],
-        ['Data Collected', D?.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'],
-        ['Schema Version', D?.schemaVersion||'—'],
-        ['Diagnostics Coverage', `${s.hostPoolsWithDiagnostics||0} of ${hps.length} host pools`],
-        ['Session Detail Collected', s.sessionDetailCollected?'Yes':'No'],
-      ],
-      {colWidths:['35%','65%']}
-    );
-    if(allFindings.length){
-      ovHtml += '<p style="font-size:11px;color:#475569;margin-top:12px">'+allFindings.length+' configuration finding'+(allFindings.length!==1?'s':'')+' identified — see <em>Configuration Findings</em> section for details.</p>';
+      ovHtml += docTable(
+        ['Property','Value'],
+        [
+          ['Subscription', sub],
+          ['Tenant', D?.tenantName||D?.tenantId||'—'],
+          ['Data Collected', D?.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'],
+          ['Schema Version', D?.schemaVersion||'—'],
+          ['Diagnostics Coverage', `${s.hostPoolsWithDiagnostics||0} of ${hps.length} host pools`],
+          ['Session Detail Collected', s.sessionDetailCollected?'Yes':'No'],
+        ],
+        {colWidths:['35%','65%']}
+      );
+      if(allFindings.length){
+        ovHtml += '<p style="font-size:11px;color:#475569;margin-top:12px">'+allFindings.length+' configuration finding'+(allFindings.length!==1?'s':'')+' identified — see <em>Configuration Findings</em> section for details.</p>';
+      }
     }
     sections.push(ovHtml);
   }
