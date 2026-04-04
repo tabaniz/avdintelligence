@@ -2061,6 +2061,57 @@ function renderOverview(){
   if(!D){ $('view-overview').innerHTML=noData(); return; }
   const s=D.summary||{};
   const hps=arr(D.hostPools);
+  const isLive=D?.displayConfig?.isLiveMode===true;
+
+  // ── LIVE MODE — clean overview ──────────────────────────────────
+  if(isLive){
+    const ags=arr(D.applicationGroups);
+    const allAssignees=ags.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)]);
+    const shs=arr(D.sessionHosts).length?arr(D.sessionHosts):hps.flatMap(hp=>arr(hp.sessionHosts));
+    const availSHs  = shs.filter(s=>s.status==='Available').length;
+    const unavailSHs= shs.filter(s=>s.status==='Unavailable').length;
+    const shutdownSHs=shs.filter(s=>s.status==='Shutdown').length;
+    const drainSHs  = shs.filter(s=>s.drainMode).length;
+    $('view-overview').innerHTML=`
+    <div class="section-hdr"><h2>Infrastructure Overview</h2><span class="section-sub">Live snapshot · ${esc(D.subscriptionName||D.subscriptionId||'—')}</span></div>
+    <div class="card accent-cyan">
+      <div class="card-title">Subscription</div>
+      <div class="col2">
+        <div>
+          <div class="ir"><span class="ir-k">Subscription</span><span class="ir-v">${esc(D.subscriptionName||'—')} ${copyBtn(D.subscriptionName||'')}</span></div>
+          <div class="ir"><span class="ir-k">Subscription ID</span><span class="ir-v" style="font-size:9px">${esc(D.subscriptionId||'—')} ${copyBtn(D.subscriptionId||'')}</span></div>
+        </div>
+        <div>
+          <div class="ir"><span class="ir-k">Tenant</span><span class="ir-v">${esc(D.tenantName||D.tenantId||'—')}</span></div>
+          <div class="ir"><span class="ir-k">Collected</span><span class="ir-v">${D.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid g4">
+      <div class="kpi clickable" onclick="navTo('hostpools')"><div class="kpi-label">Host Pools</div><div class="kpi-value kv-cyan">${fmt(s.hostPoolCount)}</div><div class="kpi-sub">${s.pooledHostPools||0} pooled · ${s.personalHostPools||0} personal</div></div>
+      <div class="kpi clickable" onclick="navTo('workspaces')"><div class="kpi-label">Workspaces</div><div class="kpi-value">${fmt(s.avdWorkspaceCount)}</div></div>
+      <div class="kpi clickable" onclick="navTo('appgroups')"><div class="kpi-label">Application Groups</div><div class="kpi-value">${fmt(s.applicationGroupCount)}</div></div>
+      <div class="kpi clickable" onclick="navTo('sessionhosts')"><div class="kpi-label">Session Hosts</div><div class="kpi-value">${fmt(s.totalSessionHosts)}</div><div class="kpi-sub">${fmt(s.availableHosts)} available</div></div>
+    </div>
+    <div class="kpi-grid g4">
+      <div class="kpi clickable" onclick="navTo('sessions')"><div class="kpi-label">Active Sessions</div><div class="kpi-value kv-green">${fmt(s.totalActiveSessions)}</div><div class="kpi-sub">${fmt(s.totalDisconnectedSessions)} disconnected</div></div>
+      <div class="kpi clickable" onclick="navTo('rbac')"><div class="kpi-label">RBAC Assignments</div><div class="kpi-value kv-cyan">${allAssignees.length}</div><div class="kpi-sub">${allAssignees.filter(a=>a.objectType==='Group').length} groups</div></div>
+      <div class="kpi clickable" onclick="navTo('scaling')"><div class="kpi-label">Scaling Plans</div><div class="kpi-value">${fmt(s.scalingPlanCount)}</div><div class="kpi-sub kv-${(s.hostPoolsWithoutScaling||0)>0?'amber':''}">${s.hostPoolsWithoutScaling||0} pools without</div></div>
+      <div class="kpi clickable" onclick="navTo('rginventory')"><div class="kpi-label">Resource Groups</div><div class="kpi-value">${fmt(arr(D.resourceGroups).length)}</div></div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">Session Host Status</div>
+      <div class="kpi-grid g4">
+        <div class="kpi"><div class="kpi-label">Available</div><div class="kpi-value kv-green">${availSHs}</div></div>
+        <div class="kpi"><div class="kpi-label">Unavailable</div><div class="kpi-value kv-${unavailSHs>0?'red':'green'}">${unavailSHs}</div></div>
+        <div class="kpi"><div class="kpi-label">Shutdown</div><div class="kpi-value kv-${shutdownSHs>0?'amber':'green'}">${shutdownSHs}</div></div>
+        <div class="kpi"><div class="kpi-label">Drain Mode</div><div class="kpi-value kv-${drainSHs>0?'amber':'green'}">${drainSHs}</div></div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // ── PS1/JSON MODE — full overview ───────────────────────────────
   const cur=s.currency||'';
   const healthPct=s.overallHealthPct??0;
   const availPct=s.totalSessionHosts>0?Math.round((s.availableHosts/s.totalSessionHosts)*100):0;
