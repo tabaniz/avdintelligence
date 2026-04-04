@@ -4223,19 +4223,19 @@ function rbBuildHTMLDoc(){
       ovHtml += kpiRow(
         kpiBox('Host Pools', s.hostPoolCount||0, `${s.pooledHostPools||0} pooled · ${s.personalHostPools||0} personal`, 'cyan'),
         kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
-        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
-        kpiBox('Session Hosts', s.totalSessionHosts||0, `${s.availableHosts||0} available`, 'green')
+		kpiBox('Session Hosts', s.totalSessionHosts||0, `${s.availableHosts||0} available`, 'green'),
+		kpiBox('Session Desktops', liveDesktops, 'desktop app groups', 'blue'),		
+		kpiBox('Active Sessions', s.totalActiveSessions||0, `${s.totalDisconnectedSessions||0} disconnected`, 'green')
+		
       );
       ovHtml += kpiRow(
-        kpiBox('Active Sessions', s.totalActiveSessions||0, `${s.totalDisconnectedSessions||0} disconnected`, 'green'),
-        kpiBox('Applications', liveApps, 'published RemoteApps', 'cyan'),
-        kpiBox('Session Desktops', liveDesktops, 'desktop app groups', 'blue'),
-        kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan')
+        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),        
+		kpiBox('Resource Groups', arr(D?.resourceGroups).length, '', 'blue'),
+		kpiBox('Applications', liveApps, 'published RemoteApps', 'cyan'),
+		kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
+		kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan')
       );
-      ovHtml += kpiRow(
-        kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
-        kpiBox('Resource Groups', arr(D?.resourceGroups).length, '', 'blue')
-      );
+	  
       ovHtml += docTable(
         ['Session Host Status','Count'],
         [['Available',availSHs],['Unavailable',unavailSHs],['Shutdown',shutdownSHs],['Drain Mode',drainSHs]],
