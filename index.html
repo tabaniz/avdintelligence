@@ -4218,6 +4218,8 @@ function rbBuildHTMLDoc(){
       const drainSHs  =shs.filter(sh=>sh.drainMode).length;
       const liveAgs=arr(D?.applicationGroups);
       const liveAssignees=liveAgs.flatMap(ag=>[...arr(ag.assignedUsers),...arr(ag.assignedGroups)]);
+      const liveApps=liveAgs.filter(ag=>ag.applicationGroupType==='RemoteApp').flatMap(ag=>arr(ag.remoteApps)).length;
+      const liveDesktops=liveAgs.filter(ag=>ag.applicationGroupType==='Desktop').length;
       ovHtml += kpiRow(
         kpiBox('Host Pools', s.hostPoolCount||0, `${s.pooledHostPools||0} pooled · ${s.personalHostPools||0} personal`, 'cyan'),
         kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
@@ -4226,7 +4228,11 @@ function rbBuildHTMLDoc(){
       );
       ovHtml += kpiRow(
         kpiBox('Active Sessions', s.totalActiveSessions||0, `${s.totalDisconnectedSessions||0} disconnected`, 'green'),
-        kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan'),
+        kpiBox('Applications', liveApps, 'published RemoteApps', 'cyan'),
+        kpiBox('Session Desktops', liveDesktops, 'desktop app groups', 'blue'),
+        kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan')
+      );
+      ovHtml += kpiRow(
         kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
         kpiBox('Resource Groups', arr(D?.resourceGroups).length, '', 'blue')
       );
