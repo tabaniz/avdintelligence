@@ -3659,8 +3659,21 @@ function rbSetFmt(fmt){
   rbMarkDirty();
 }
 function rbToggleSec(id,checked){ if(checked) rbState.sections.add(id); else rbState.sections.delete(id); rbUpdateSummary(); rbMarkDirty(); }
-function rbSetAllSec(all){ RB_ALL_SECTIONS.forEach(s=>all?rbState.sections.add(s.id):rbState.sections.delete(s.id)); rbBuildSecList(); rbUpdateSummary(); rbMarkDirty(); }
-function rbSetDefaults(){ rbState.sections=new Set(RB_DEFAULT_SECTIONS); rbBuildSecList(); rbUpdateSummary(); rbMarkDirty(); }
+const RB_LIVE_HIDDEN_SECS = new Set(['fslogix','cost','rdpanalysis','sessions']);
+const RB_LIVE_TICKED_SECS = new Set(['overview','workspaces','hostpools','appgroups','desktops','sessionhosts']);
+function rbSetAllSec(all){
+  const isLive=D?.displayConfig?.isLiveMode===true;
+  RB_ALL_SECTIONS.forEach(s=>{
+    if(isLive&&RB_LIVE_HIDDEN_SECS.has(s.id)) return;
+    all?rbState.sections.add(s.id):rbState.sections.delete(s.id);
+  });
+  rbBuildSecList(); rbUpdateSummary(); rbMarkDirty();
+}
+function rbSetDefaults(){
+  const isLive=D?.displayConfig?.isLiveMode===true;
+  rbState.sections=isLive?new Set(RB_LIVE_TICKED_SECS):new Set(RB_DEFAULT_SECTIONS);
+  rbBuildSecList(); rbUpdateSummary(); rbMarkDirty();
+}
 function rbMarkDirty(){ rbState.dirty=true; rbSetPreviewBtn(true); rbUpdateSummary(); }
 
 function rbApplyLiveModeUI(){
@@ -3998,6 +4011,8 @@ function rbBuildMarkdown(){
     shs.forEach(sh=>{
       const net=sh.networkDetails||{};
       const tags=Object.entries(sh.tags||{});
+      const displayName = sh.name||sh.vmName||'—';
+      const location    = sh.vmLocation||sh.location||'—';
       L.push(`### ${sh.vmName||sh.name||'—'}`);
       L.push('\n**Session Host Details**');
       L.push(`| Field | Value |\n|-------|-------|`);
@@ -4620,7 +4635,7 @@ function rbBuildHTMLDoc(){
       shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden">
         <!-- Card header -->
         <div style="background:#0d1117;padding:10px 16px;display:flex;align-items:center;gap:12px">
-          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(sh.vmName||sh.name||'—')}</span>
+          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(displayName)}</span>
           <span style="font-size:11px;font-weight:600;color:${statusC}">${esc(sh.status||'—')}</span>
           ${sh.drainMode?'<span style="font-size:9px;background:#92400e;color:#fef3c7;padding:2px 6px;border-radius:3px;margin-left:4px">DRAIN MODE</span>':''}
           ${sh.excludeFromScaling?'<span style="font-size:9px;background:#854d0e;color:#fef9c3;padding:2px 6px;border-radius:3px;margin-left:4px">EXCL. SCALING</span>':''}
@@ -4635,7 +4650,7 @@ function rbBuildHTMLDoc(){
             ${kvLine('Status',      `<span style="color:${statusC};font-weight:600">${esc(sh.status||'—')}</span>`)}
             ${kvLine('VM Size',     `<code style="font-size:10px">${esc(sh.vmSize||'—')}</code>`)}
             ${kvLine('Active Sessions', sh.activeSessions||0)}
-            ${kvLine('Location',    sh.location||'—')}
+            ${kvLine('Location',    location)}
             ${kvLine('New Sessions',sh.allowNewSessions===false?'<span style="color:#dc2626">Blocked</span>':'<span style="color:#059669">Allowed</span>')}
             ${kvLine('Resource Group', sh.resourceGroup||'—')}
             ${kvLine('Host Pool',   sh.hostPoolName||'—')}
@@ -4649,8 +4664,8 @@ function rbBuildHTMLDoc(){
             ${kvLine('Agent Ver',   sh.agentVersion||'—')}
             ${kvLine('OS Type',     sh.osType||'—')}
             ${kvLine('Power State', sh.powerState||'—')}
-            ${kvLine('Patch Status',`<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`)}
-            ${kvLine('FSLogix',     sh.fslogixDetected?'<span style="color:#059669">✓ Detected</span>':'—')}
+            ${isLive ? '' : kvLine('Patch Status',`<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`)}
+            ${isLive ? '' : kvLine('FSLogix', sh.fslogixDetected?'<span style="color:#059669">✓ Detected</span>':'—')}
           </div>
 
           <!-- Storage Details -->
