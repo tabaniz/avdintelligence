@@ -4085,6 +4085,7 @@ function rbBuildHTMLDoc(){
   const sessions= arr(D?.sessions).length ? arr(D?.sessions) : hps.flatMap(hp=>arr(hp.sessionHosts).flatMap(sh=>arr(sh.sessions)));
   const cur     = s.currency||'';
   const sec     = id => rbState.sections.has(id);
+  const isLive        = D?.displayConfig?.isLiveMode===true;
   const shutdownHosts = s.shutdownHosts||0;
   const activeHosts   = (s.totalSessionHosts||0) - shutdownHosts;
   const prodHps       = hps.filter(hp=>!/uat|dev|test/i.test(hp.name||''));
@@ -4152,6 +4153,8 @@ function rbBuildHTMLDoc(){
       </div>
     </div>`;
   }
+
+  function kvLine(label, value){ return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #f1f5f9"><span style="color:#64748b;white-space:nowrap">${esc(label)}</span><span style="text-align:right;word-break:break-all">${value}</span></div>`; }
 
   function docTable(headers, rows, opts){
     const colWidths = opts?.colWidths||[];
@@ -4571,34 +4574,79 @@ function rbBuildHTMLDoc(){
       kpiBox('Drain Mode', drain, 'new sessions blocked', drain>0?'amber':'green'),
       kpiBox('FSLogix', (s.hostsWithFSLogixDetected||0)+'/'+(s.totalSessionHosts||shs.length), 'coverage', s.hostsWithFSLogixDetected===shs.length?'green':'amber')
     );
-    shHtml += docTable(
-      ['Session Host','Host Pool','Status','VM Size','Sessions','Patch Status','FSLogix'],
-      shs.map(sh=>{
-        const ps = patchStatus(sh.lastUpdate);
-        const statusC = {Available:'green',Unavailable:'red',NeedsAssistance:'amber',Shutdown:'gray',Disconnected:'amber'}[sh.status]||'gray';
-        return [esc(sh.vmName||sh.name||'—'), esc(sh.hostPoolName||'—'), pill(sh.status||'—',statusC), `<code style="font-size:10px">${esc(sh.vmSize||'—')}</code>`, (sh.activeSessions||0)+' active', `<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`, sh.fslogixDetected?'<span style="color:#059669">✓</span>':'—'];
-      })
-    );
-    // Storage summary table
-    const shsWithDisk=shs.filter(sh=>sh.osDiskSizeGB>0||sh.osDiskType);
-    if(shsWithDisk.length){
-      shHtml += `<p style="font-weight:700;font-size:12px;margin:14px 0 6px;color:#0d1117">Storage Configuration</p>`;
-      shHtml += docTable(
-        ['Session Host','OS Disk','Size (GB)','Storage Type','Caching','Exclude Scaling'],
-        shsWithDisk.map(sh=>[
-          esc(sh.vmName||sh.name||'—'),
-          `<code style="font-size:9px">${esc(sh.osDiskName||'—')}</code>`,
-          sh.osDiskSizeGB||'—',
-          (() => {
-            const t=sh.osDiskType||'—';
-            const c=t.includes('Premium')?'#059669':t.includes('Standard_SSD')?'#2563eb':'#64748b';
-            return t!=='—'?`<span style="color:${c};font-size:9px">${esc(t)}</span>`:'—';
-          })(),
-          esc(sh.osDiskCaching||'—'),
-          sh.excludeFromScaling?'<span style="color:#d97706;font-size:9px">⊘ Excluded</span>':'—'
-        ])
-      );
-    }
+    // ── Per-host expanded cards ───────────────────────────────────
+    shs.forEach(function(sh){
+      const ps = patchStatus(sh.lastUpdate);
+      const statusC = {Available:'#059669',Unavailable:'#dc2626',NeedsAssistance:'#d97706',Shutdown:'#64748b',Disconnected:'#d97706'}[sh.status]||'#64748b';
+      const diskType = sh.osDiskType||'—';
+      const diskTypeC = diskType.includes('Premium')?'#059669':diskType.includes('Standard_SSD')?'#2563eb':'#64748b';
+      const tags = Object.entries(sh.tags||{});
+      const net = sh.networkDetails || {};
+
+      shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden">
+        <!-- Card header -->
+        <div style="background:#0d1117;padding:10px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(sh.vmName||sh.name||'—')}</span>
+          <span style="font-size:11px;font-weight:600;color:${statusC}">${esc(sh.status||'—')}</span>
+          ${sh.drainMode?'<span style="font-size:9px;background:#92400e;color:#fef3c7;padding:2px 6px;border-radius:3px;margin-left:4px">DRAIN MODE</span>':''}
+          ${sh.excludeFromScaling?'<span style="font-size:9px;background:#854d0e;color:#fef9c3;padding:2px 6px;border-radius:3px;margin-left:4px">EXCL. SCALING</span>':''}
+          <span style="margin-left:auto;font-family:'Courier New',monospace;font-size:10px;color:#64748b">${esc(sh.hostPoolName||'—')}</span>
+        </div>
+        <!-- Card body -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;font-size:11px">
+
+          <!-- Session Host Details -->
+          <div style="padding:12px 14px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+            <div style="font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;color:#00a8cc;text-transform:uppercase;margin-bottom:8px">Session Host</div>
+            ${kvLine('Status',      `<span style="color:${statusC};font-weight:600">${esc(sh.status||'—')}</span>`)}
+            ${kvLine('VM Size',     `<code style="font-size:10px">${esc(sh.vmSize||'—')}</code>`)}
+            ${kvLine('Active Sessions', sh.activeSessions||0)}
+            ${kvLine('Location',    sh.location||'—')}
+            ${kvLine('New Sessions',sh.allowNewSessions===false?'<span style="color:#dc2626">Blocked</span>':'<span style="color:#059669">Allowed</span>')}
+            ${kvLine('Resource Group', sh.resourceGroup||'—')}
+            ${kvLine('Host Pool',   sh.hostPoolName||'—')}
+          </div>
+
+          <!-- VM Details -->
+          <div style="padding:12px 14px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+            <div style="font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;color:#00a8cc;text-transform:uppercase;margin-bottom:8px">VM Details</div>
+            ${kvLine('VM Name',     sh.vmName||'—')}
+            ${kvLine('OS Version',  sh.osVersion||'—')}
+            ${kvLine('Agent Ver',   sh.agentVersion||'—')}
+            ${kvLine('OS Type',     sh.osType||'—')}
+            ${kvLine('Power State', sh.powerState||'—')}
+            ${kvLine('Patch Status',`<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`)}
+            ${kvLine('FSLogix',     sh.fslogixDetected?'<span style="color:#059669">✓ Detected</span>':'—')}
+          </div>
+
+          <!-- Storage Details -->
+          <div style="padding:12px 14px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
+            <div style="font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;color:#00a8cc;text-transform:uppercase;margin-bottom:8px">Storage</div>
+            ${kvLine('Disk Name',   `<code style="font-size:9px">${esc(sh.osDiskName||'—')}</code>`)}
+            ${kvLine('Disk Size',   sh.osDiskSizeGB ? sh.osDiskSizeGB+' GB' : '—')}
+            ${kvLine('Disk Type',   diskType!=='—'?`<span style="color:${diskTypeC}">${esc(diskType)}</span>`:'—')}
+            ${kvLine('Caching',     sh.osDiskCaching||'—')}
+          </div>
+
+          <!-- Network Details -->
+          <div style="padding:12px 14px;border-bottom:1px solid #e2e8f0">
+            <div style="font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;color:#00a8cc;text-transform:uppercase;margin-bottom:8px">Network</div>
+            ${kvLine('Private IP',  net.privateIP||sh.privateIP||'—')}
+            ${kvLine('Public IP',   net.publicIP||sh.publicIP||'—')}
+            ${kvLine('NIC',         net.nicName||sh.nicName||'—')}
+            ${kvLine('vNet',        net.virtualNetwork||sh.virtualNetwork||'—')}
+            ${kvLine('Subnet',      net.subnet||sh.subnet||'—')}
+          </div>
+
+        </div>
+        <!-- Tags + Resource ID -->
+        ${tags.length||sh.id ? `<div style="padding:8px 14px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:baseline">
+          ${tags.length?`<span><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:8px">TAGS</span> ${tags.map(([k,v])=>`<span style="background:#e2e8f0;border-radius:3px;padding:1px 5px;margin-left:3px">${esc(k)}: ${esc(v)}</span>`).join('')}</span>`:''}
+          ${sh.id?`<span style="margin-left:auto"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:8px">RESOURCE ID</span> <code style="font-size:9px;color:#475569">${esc(sh.id)}</code></span>`:''}
+        </div>` : ''}
+      </div>`;
+    });
+
     // ExcludeFromScaling warning
     const excludedHosts=shs.filter(sh=>sh.excludeFromScaling);
     if(excludedHosts.length){
@@ -5059,11 +5107,11 @@ function rbBuildHTMLDoc(){
     <div style="font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:#00a8cc;text-transform:uppercase;margin-bottom:10px">Document Details</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:11px">
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">CLIENT</span><br><strong>${esc(client)}</strong></div>
-      <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ENVIRONMENT</span><br>${esc(envName)}</div>
+      ${isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ENVIRONMENT</span><br>${esc(envName)}</div>`}
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">PREPARED BY</span><br>${esc(author)}</div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">VERSION</span><br>${esc(version)}</div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATE</span><br>${esc(docDate)}</div>
-      <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATA COLLECTED</span><br>${dataDate}</div>
+      ${isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATA COLLECTED</span><br>${dataDate}</div>`}
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SUBSCRIPTION</span><br><span style="font-size:10px">${esc(D?.subscriptionName||'—')}</span></div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TENANT</span><br><span style="font-size:10px">${esc(D?.tenantName||D?.tenantId||'—')}</span></div>
     </div>
@@ -5133,8 +5181,12 @@ hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0;}
   <div class="cover">
     <div class="cover-top">
       <div class="cover-ygit">YGIT AVD Intelligence · v1.0</div>
-      <div class="cover-client">${esc(client)}</div>
-      <div class="cover-env">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>
+      ${isLive
+        ? `<div class="cover-client">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>
+      ${client&&client!=='—'?`<div class="cover-env">${esc(client)}</div>`:''}`
+        : `<div class="cover-client">${esc(client)}</div>
+      <div class="cover-env">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>`
+      }
       ${logoUrl?`<div class="cover-logo-wrap"><img class="cover-logo" src="${esc(logoUrl)}" alt="" onerror="this.style.display='none'"></div>`:''}
     </div>
     <div class="cover-rule"></div>
