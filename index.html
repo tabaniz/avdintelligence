@@ -1148,7 +1148,7 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             <label class="rb-label">Document Subtitle</label>
             <input class="rb-input" id="rb-subtitle" placeholder="Azure Virtual Desktop Environment Document" value="Azure Virtual Desktop Environment Document" oninput="rbMarkDirty()">
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-env">
             <label class="rb-label">Environment Name</label>
             <input class="rb-input" id="rb-env" placeholder="e.g. Production AVD" oninput="rbMarkDirty()">
           </div>
@@ -1160,7 +1160,7 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             <label class="rb-label">Version</label>
             <input class="rb-input" id="rb-version" placeholder="v1.0" value="v1.0" oninput="rbMarkDirty()">
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-date">
             <label class="rb-label">Review Date</label>
             <input class="rb-input" id="rb-date" oninput="rbMarkDirty()">
           </div>
@@ -3587,22 +3587,22 @@ function renderCost(){
 // ═══════════════════════════════════════════════════════════════════
 const RB_DEFAULT_SECTIONS = new Set(['overview','hostpools','sessionhosts','sessions','cost']);
 const RB_ALL_SECTIONS = [
-  {id:'overview',    label:'Overview & Statistics', icon:'⬛', isDefault:true},
-  {id:'hostpools',   label:'Host Pools',             icon:'🖥', isDefault:true},
-  {id:'scaling',     label:'Scaling Plans',          icon:'⚖', isDefault:false},
-  {id:'workspaces',  label:'Workspaces',             icon:'⊞', isDefault:false},
-  {id:'appgroups',   label:'Application Groups',     icon:'⊡', isDefault:false},
-  {id:'applications',label:'Applications',           icon:'🚀', isDefault:false},
-  {id:'desktops',    label:'Session Desktops',       icon:'🖵', isDefault:false},
-  {id:'sessionhosts',label:'Session Hosts',          icon:'💻', isDefault:true},
-  {id:'sessions',    label:'User Sessions',          icon:'👤', isDefault:true},
-  {id:'networking',  label:'Networking',             icon:'🌐', isDefault:false},
-  {id:'rbac',        label:'RBAC Assignments',       icon:'🔑', isDefault:false},
-  {id:'intelligence',label:'AVD Diagnostics',        icon:'🔍', isDefault:true},
-  {id:'fslogix',     label:'FSLogix',                icon:'📦', isDefault:false},
-  {id:'cost',        label:'Cost & FinOps',          icon:'💰', isDefault:true},
-  {id:'rginventory', label:'RG Inventory (Appendix)', icon:'📋', isDefault:false},
+  {id:'overview',    label:'Overview & Statistics',     icon:'⬛', isDefault:true},
+  {id:'workspaces',  label:'Workspaces',                icon:'⊞', isDefault:false},
+  {id:'hostpools',   label:'Host Pools',                icon:'🖥', isDefault:true},
+  {id:'appgroups',   label:'Application Groups',        icon:'⊡', isDefault:false},
+  {id:'desktops',    label:'Session Desktops',          icon:'🖵', isDefault:false},
+  {id:'sessionhosts',label:'Session Hosts',             icon:'💻', isDefault:true},
+  {id:'scaling',     label:'Scaling Plans',             icon:'⚖', isDefault:false},
+  {id:'networking',  label:'Networking',                icon:'🌐', isDefault:false},
+  {id:'rbac',        label:'RBAC Assignments',          icon:'🔑', isDefault:false},
+  {id:'intelligence',label:'AVD Diagnostics',           icon:'🔍', isDefault:true},
+  {id:'rginventory', label:'RG Inventory (Appendix)',   icon:'📋', isDefault:false},
+  {id:'applications',label:'Applications',              icon:'🚀', isDefault:false},
+  {id:'fslogix',     label:'FSLogix',                   icon:'📦', isDefault:false},
+  {id:'cost',        label:'Cost & FinOps',             icon:'💰', isDefault:true},
   {id:'rdpanalysis', label:'RDP Analysis (Appendix B)', icon:'🔧', isDefault:false},
+  {id:'sessions',    label:'User Sessions',             icon:'👤', isDefault:true},
 ];
 let rbState = { format:'html', sections:new Set(RB_DEFAULT_SECTIONS), dirty:true };
 
@@ -3624,14 +3624,20 @@ function rbOpen(){
   }
   const envEl=$('rb-env'); if(envEl&&!envEl.value) envEl.value=(D.subscriptionName?D.subscriptionName+' — AVD Environment':'AVD Environment');
   const envLbl=$('rb-env-label'); if(envLbl) envLbl.textContent=D.subscriptionName||D.subscriptionId||'—';
+  // Apply live mode section defaults before building list
+  if(D?.displayConfig?.isLiveMode===true){
+    rbState.sections = new Set(['overview','workspaces','hostpools','appgroups','desktops','sessionhosts']);
+  }
   rbBuildSecList(); rbUpdateSummary(); rbState.dirty=true; rbSetPreviewBtn(true);
   // Pre-fill exec textarea if empty
   const execTa = document.getElementById('rb-exec-text');
   if(execTa && !execTa.value) rbExecChange();
-  // Pre-fill author with connected UPN in Live mode
+  // Pre-fill author: display name → UPN fallback in Live mode
   const authorEl = document.getElementById('rb-author');
-  if(authorEl && !authorEl.value && D?.displayConfig?.isLiveMode && D?.displayConfig?.collectedByUpn){
-    authorEl.value = D.displayConfig.collectedByUpn;
+  if(authorEl && !authorEl.value && D?.displayConfig?.isLiveMode){
+    const displayName = D.displayConfig.collectedByDisplayName || '';
+    const upn         = D.displayConfig.collectedByUpn || '';
+    authorEl.value    = displayName || upn;
   }
   rbApplyLiveModeUI();
   $('export-modal').classList.add('open');
@@ -3659,10 +3665,16 @@ function rbMarkDirty(){ rbState.dirty=true; rbSetPreviewBtn(true); rbUpdateSumma
 
 function rbApplyLiveModeUI(){
   const isLive = D?.displayConfig?.isLiveMode===true;
-  const liveHide = ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes'];
+  const liveHide = ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes','rb-field-env','rb-field-date'];
   liveHide.forEach(function(id){
     const el = document.getElementById(id);
     if(el) el.style.display = isLive ? 'none' : '';
+  });
+  // Hide specific section rows in the section list
+  const liveHideSecs = ['fslogix','cost','rdpanalysis','sessions'];
+  liveHideSecs.forEach(function(sid){
+    const row = document.getElementById('rbc-'+sid)?.closest('.rb-sec-row');
+    if(row) row.style.display = isLive ? 'none' : '';
   });
 }
 
@@ -5902,7 +5914,7 @@ async function qrCollect() {
         collectedAt:           now,
         currency:              'AUD'
       },
-      displayConfig: { isLiveMode: true, collectedByUpn: qrUpn },
+      displayConfig: { isLiveMode: true, collectedByUpn: qrUpn, collectedByDisplayName: (login && login.account && login.account.name) ? login.account.name : '' },
       reportConfig:  {}
     };
 
