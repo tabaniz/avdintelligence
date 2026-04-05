@@ -5216,8 +5216,7 @@ hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0;}
     <div class="cover-top">
       <div class="cover-ygit">YGIT AVD Intelligence · v1.0</div>
       ${isLive
-        ? `<div class="cover-client">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>
-      ${client&&client!=='—'?`<div class="cover-env">${esc(client)}</div>`:''}`
+        ? `<div class="cover-client">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>`
         : `<div class="cover-client">${esc(client)}</div>
       <div class="cover-env">${esc(rbMeta('rb-subtitle')||'Azure Virtual Desktop Environment Document')}</div>`
       }
@@ -5511,6 +5510,7 @@ const QR_MSAL_CONFIG = {
 let qrMsalApp = null;
 let qrToken    = null;
 let qrUpn      = '';
+let qrDisplayName = '';
 
 async function startQuickReport() {
   const btn = document.querySelector('.mode-lite .lp-mode-btn');
@@ -5540,7 +5540,8 @@ async function startQuickReport() {
       return;
     }
     qrShowSubPicker(subs, login.account.username);
-    qrUpn = login.account.username || login.account.name || '';
+    qrUpn         = login.account.username || login.account.name || '';
+    qrDisplayName = login.account.name || '';
   } catch(e) {
     console.error('QR auth error:', e);
     alert(e.errorCode === 'user_cancelled' ? 'Sign-in cancelled.' : 'Auth failed: ' + (e.message || e));
@@ -6000,7 +6001,7 @@ async function qrCollect() {
         collectedAt:           now,
         currency:              'AUD'
       },
-      displayConfig: { isLiveMode: true, collectedByUpn: qrUpn, collectedByDisplayName: (login && login.account && login.account.name) ? login.account.name : '' },
+      displayConfig: { isLiveMode: true, collectedByUpn: qrUpn, collectedByDisplayName: qrDisplayName },
       reportConfig:  {}
     };
 
