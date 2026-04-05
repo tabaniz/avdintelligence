@@ -3995,9 +3995,43 @@ function rbBuildMarkdown(){
   }
   if(sec('sessionhosts')&&shs.length){
     L.push('\n---\n## Session Hosts\n');
-    L.push('| Host | Host Pool | Status | VM Size | Sessions | FSLogix | Last Heartbeat |');
-    L.push('|------|-----------|--------|---------|----------|---------|----------------|');
-    shs.forEach(sh=>L.push(`| ${sh.vmName||sh.name||'—'} | ${sh.hostPoolName||'—'} | ${sh.status||'—'} | ${sh.vmSize||'—'} | ${sh.activeSessions??0} | ${sh.fslogixDetected?'✓':'—'} | ${sh.lastHeartbeat||'—'} |`));
+    shs.forEach(sh=>{
+      const net=sh.networkDetails||{};
+      const tags=Object.entries(sh.tags||{});
+      L.push(`### ${sh.vmName||sh.name||'—'}`);
+      L.push('\n**Session Host Details**');
+      L.push(`| Field | Value |\n|-------|-------|`);
+      L.push(`| Status | ${sh.status||'—'} |`);
+      L.push(`| VM Size | ${sh.vmSize||'—'} |`);
+      L.push(`| Active Sessions | ${sh.activeSessions??0} |`);
+      L.push(`| Location | ${sh.location||'—'} |`);
+      L.push(`| Allow New Sessions | ${sh.allowNewSessions===false?'Blocked':'Allowed'} |`);
+      L.push(`| Host Resource Group | ${sh.resourceGroup||'—'} |`);
+      L.push(`| Host Pool | ${sh.hostPoolName||'—'} |`);
+      L.push('\n**VM Details**');
+      L.push(`| Field | Value |\n|-------|-------|`);
+      L.push(`| VM Name | ${sh.vmName||'—'} |`);
+      L.push(`| OS Version | ${sh.osVersion||'—'} |`);
+      L.push(`| Agent Version | ${sh.agentVersion||'—'} |`);
+      L.push(`| OS Type | ${sh.osType||'—'} |`);
+      L.push(`| Power State | ${sh.powerState||'—'} |`);
+      L.push('\n**Storage Details**');
+      L.push(`| Field | Value |\n|-------|-------|`);
+      L.push(`| Disk Name | ${sh.osDiskName||'—'} |`);
+      L.push(`| Disk Size | ${sh.osDiskSizeGB?sh.osDiskSizeGB+' GB':'—'} |`);
+      L.push(`| Disk Type | ${sh.osDiskType||'—'} |`);
+      L.push(`| Caching | ${sh.osDiskCaching||'—'} |`);
+      L.push('\n**Network Details**');
+      L.push(`| Field | Value |\n|-------|-------|`);
+      L.push(`| Private IP | ${net.privateIP||sh.privateIP||'—'} |`);
+      L.push(`| Public IP | ${net.publicIP||sh.publicIP||'—'} |`);
+      L.push(`| NIC | ${net.nicName||sh.nicName||'—'} |`);
+      L.push(`| Virtual Network | ${net.virtualNetwork||sh.virtualNetwork||'—'} |`);
+      L.push(`| Subnet | ${net.subnet||sh.subnet||'—'} |`);
+      if(tags.length){ L.push('\n**Tags**'); L.push(`| Key | Value |\n|-----|-------|`); tags.forEach(([k,v])=>L.push(`| ${k} | ${v} |`)); }
+      if(sh.id) L.push(`\n**Resource ID:** \`${sh.id}\``);
+      L.push('');
+    });
   }
   if(sec('sessions')&&sessions.length){
     L.push('\n---\n## User Sessions\n');
