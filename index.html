@@ -1181,10 +1181,12 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             <input class="rb-input" id="rb-logo" placeholder="…or paste a logo URL (https://...)" oninput="rbLogoUrlChange(this.value)" style="font-size:10px;">
             <input type="hidden" id="rb-logo-data" value="">
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-exec-style">
             <label class="rb-label">Executive Summary Style</label>
-            <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
-              <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="1" checked onchange="rbExecChange()"> <span>Option 1 — Balanced & professional</span></label>
+            <div style="font-size:10px;color:var(--text-muted);font-style:italic;margin-bottom:4px">Select the executive summary that best fits the client audience. If unsure, use the Universal Executive Summary.</div>
+            <div style="display:flex;flex-direction:column;gap:4px;margin-top:2px">
+              <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="0" checked onchange="rbExecChange()"> <span>Universal — suitable for any audience</span></label>
+              <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="1" onchange="rbExecChange()"> <span>Option 1 — Balanced & professional</span></label>
               <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="2" onchange="rbExecChange()"> <span>Option 2 — User-experience focused</span></label>
               <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="3" onchange="rbExecChange()"> <span>Option 3 — Executive concise</span></label>
               <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-exec-style" value="4" onchange="rbExecChange()"> <span>Option 4 — Governance focused</span></label>
@@ -1203,21 +1205,21 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             </label>
             <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-style:italic">This document reflects the environment and observed behaviour at the time of review and is intended for informational and operational reference purposes.</div>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-findings-sentence">
             <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer">
               <input type="checkbox" id="rb-findings-sentence" checked onchange="rbMarkDirty()">
               <span class="rb-label" style="margin:0">Include findings count in executive summary</span>
             </label>
             <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-style:italic">e.g. "X configuration findings were identified — see Configuration Findings section."</div>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-closing-para">
             <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer">
               <input type="checkbox" id="rb-closing-para" checked onchange="rbMarkDirty()">
               <span class="rb-label" style="margin:0">Include closing paragraph</span>
             </label>
             <div style="font-size:10px;color:var(--text-muted);margin-top:4px;font-style:italic">The Azure Virtual Desktop environment described in this document is operating as a stable and supported service, with monitoring and governance controls in place. As usage patterns evolve, the platform is intended to be continuously reviewed and optimised based on operational data, rather than treated as a fixed, point‑in‑time deployment.</div>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-kf">
             <label class="rb-label">Key Findings</label>
             <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
               <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-kf-style" value="0" checked onchange="rbKFChange()"> <span>None</span></label>
@@ -1226,7 +1228,7 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             </div>
             <textarea class="rb-input" id="rb-kf-text" placeholder="Select an option above to pre-fill, or type your own..." oninput="rbMarkDirty()" style="min-height:80px;margin-top:6px;display:none"></textarea>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-fi">
             <label class="rb-label">Future Improvements</label>
             <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
               <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rb-fi-style" value="0" checked onchange="rbFIChange()"> <span>None</span></label>
@@ -1235,11 +1237,11 @@ textarea.rb-input{resize:vertical;min-height:56px;line-height:1.5;}
             </div>
             <textarea class="rb-input" id="rb-fi-text" placeholder="Select an option above to pre-fill, or type your own..." oninput="rbMarkDirty()" style="min-height:80px;margin-top:6px;display:none"></textarea>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-scope">
             <label class="rb-label">Document Scope</label>
             <textarea class="rb-input" id="rb-scope" placeholder="e.g. This document covers the Production AVD environment for Contoso Ltd, assessed on [date]. It includes host pool configuration, user access, and operational health." oninput="rbMarkDirty()" style="min-height:64px"></textarea>
           </div>
-          <div class="rb-field">
+          <div class="rb-field" id="rb-field-notes">
             <label class="rb-label">Notes / Context</label>
             <textarea class="rb-input" id="rb-notes" placeholder="Any additional context for the document..." oninput="rbMarkDirty()"></textarea>
           </div>
@@ -2114,8 +2116,14 @@ function renderOverview(){
   // ── PS1/JSON MODE — full overview ───────────────────────────────
   const cur=s.currency||'';
   const healthPct=s.overallHealthPct??0;
-  const availPct=s.totalSessionHosts>0?Math.round((s.availableHosts/s.totalSessionHosts)*100):0;
-  const diagPct=hps.length>0?Math.round(((s.hostPoolsWithDiagnostics??0)/hps.length)*100):0;
+  const shutdownHosts=s.shutdownHosts||0;
+  const activeHosts=(s.totalSessionHosts||0)-shutdownHosts;
+  const allShutdown=activeHosts===0&&shutdownHosts>0;
+  const availPct=activeHosts>0?Math.round(((s.availableHosts||0)/activeHosts)*100):0;
+  const prodHps=hps.filter(hp=>!/uat|dev|test/i.test(hp.name||''));
+  const prodPoolsWithoutScaling=prodHps.filter(hp=>!hp.hasScalingPlan).length;
+  const diagPct=prodHps.length>0?Math.round(((prodHps.filter(hp=>hp.diagnosticsEnabled).length)/prodHps.length)*100):0;
+  const diagNote=hps.length>prodHps.length?` (${hps.length-prodHps.length} non-prod excluded)`:'';
   const allFindings=hps.flatMap(hp=>arr(hp.securityFindings));
   const critCount=allFindings.filter(f=>f.severity==='Critical').length;
   const highCount=allFindings.filter(f=>f.severity==='High').length;
@@ -2154,9 +2162,9 @@ function renderOverview(){
     <div class="kpi clickable" onclick="navTo('appgroups')"><div class="kpi-label">Application Groups</div><div class="kpi-value">${fmt(s.applicationGroupCount)}</div><div class="kpi-sub">${fmt(s.avdWorkspaceCount)} workspace${(s.avdWorkspaceCount||0)!==1?'s':''}</div></div>
   </div>
   <div class="kpi-grid g4">
-    <div class="kpi clickable" onclick="navTo('scaling')"><div class="kpi-label">Scaling Plans</div><div class="kpi-value">${fmt(s.scalingPlanCount)}</div><div class="kpi-sub kv-${(s.hostPoolsWithoutScaling||0)>0?'amber':''}">${s.hostPoolsWithoutScaling||0} pools without</div></div>
+    <div class="kpi clickable" onclick="navTo('scaling')"><div class="kpi-label">Scaling Plans</div><div class="kpi-value">${fmt(s.scalingPlanCount)}</div><div class="kpi-sub kv-${prodPoolsWithoutScaling>0?'amber':''}">${prodPoolsWithoutScaling} prod pools without</div></div>
     <div class="kpi clickable" onclick="navTo('fslogix')"><div class="kpi-label">FSLogix Detected</div><div class="kpi-value kv-${(s.hostsWithFSLogixDetected||0)>0?'cyan':'amber'}">${fmt(s.hostsWithFSLogixDetected)}</div><div class="kpi-sub">of ${s.totalSessionHosts||0} hosts</div></div>
-    <div class="kpi"><div class="kpi-label">Diagnostics Coverage</div><div class="kpi-value kv-${diagPct>=80?'green':diagPct>=50?'amber':'red'}">${diagPct}%</div><div class="kpi-sub">${s.hostPoolsWithDiagnostics||0} of ${hps.length} pools</div></div>
+    <div class="kpi"><div class="kpi-label">Diagnostics Coverage</div><div class="kpi-value kv-${diagPct>=80?'green':diagPct>=50?'amber':'red'}">${diagPct}%</div><div class="kpi-sub">${prodHps.filter(hp=>hp.diagnosticsEnabled).length} of ${prodHps.length} prod pools${diagNote}</div></div>
     <div class="kpi clickable" onclick="navTo('intelligence')"><div class="kpi-label">KQL Analytics</div><div class="kpi-value kv-${D.metrics?.querySupported?'cyan':'gray'}">${D.metrics?.querySupported?arr(D.metrics?.queriesRun).length+' Q':'—'}</div><div class="kpi-sub">${D.metrics?.timespanDays||7}d window</div></div>
   </div>
 
@@ -2171,10 +2179,11 @@ function renderOverview(){
     <div class="card" style="margin:0">
       <div class="card-title">Environment Health</div>
       <div class="health-rings-row">
-        <div class="health-ring-wrap">${healthRing(healthPct,scoreColor(healthPct))}<div class="health-ring-label">Overall</div></div>
-        <div class="health-ring-wrap">${healthRing(availPct,scoreColor(availPct))}<div class="health-ring-label">Availability</div></div>
-        <div class="health-ring-wrap">${healthRing(diagPct,scoreColor(diagPct))}<div class="health-ring-label">Diagnostics</div></div>
+        <div class="health-ring-wrap">${allShutdown?healthRing(100,'var(--text-muted)'):healthRing(healthPct,scoreColor(healthPct))}<div class="health-ring-label">Overall</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);text-align:center;margin-top:3px">${allShutdown?'all hosts powered off':`${s.availableHosts||0}/${activeHosts} active${shutdownHosts>0?' · '+shutdownHosts+' off':''}`}</div></div>
+        <div class="health-ring-wrap">${allShutdown?healthRing(0,'var(--text-muted)'):healthRing(availPct,scoreColor(availPct))}<div class="health-ring-label">Availability</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);text-align:center;margin-top:3px">${allShutdown?'scaling plan active':`${s.availableHosts||0} available`}</div></div>
+        <div class="health-ring-wrap">${healthRing(diagPct,scoreColor(diagPct))}<div class="health-ring-label">Diagnostics</div><div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);text-align:center;margin-top:3px">${prodHps.filter(hp=>hp.diagnosticsEnabled).length}/${prodHps.length} prod pools${diagNote}</div></div>
       </div>
+      ${(s.drainModeHosts||0)>0?'<div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding:6px 10px;background:#f59e0b10;border:1px solid #f59e0b40;border-radius:4px;font-family:var(--font-mono);font-size:10px;color:var(--amber)"><span>⚠</span> '+s.drainModeHosts+' host'+((s.drainModeHosts>1)?'s are':' is')+' in Drain Mode — not accepting new sessions</div>':''} 
     </div>
     <div class="card" style="margin:0">
       <div class="card-title">Security Findings</div>
@@ -2271,14 +2280,20 @@ function hpCard(hp){
   <div id="hp-${esc(hp.name)}" class="hp-card-body">
     <div class="col2-3" style="margin-bottom:12px">
       <div>
+        ${hp.friendlyName&&hp.friendlyName!==hp.name?`<div class="ir"><span class="ir-k">Friendly Name</span><span class="ir-v">${esc(hp.friendlyName)}</span></div>`:''}
         <div class="ir"><span class="ir-k">Resource Group</span><span class="ir-v">${esc(hp.resourceGroup||'—')} ${copyBtn(hp.resourceGroup||'')}</span></div>
         <div class="ir"><span class="ir-k">Location</span><span class="ir-v">${esc(hp.location||'—')}</span></div>
         <div class="ir"><span class="ir-k">Load Balancer</span><span class="ir-v">${esc(hp.loadBalancerType||'—')}</span></div>
         <div class="ir"><span class="ir-k">Max Sessions</span><span class="ir-v">${esc(hp.maxSessionLimit??'—')}</span></div>
+        <div class="ir"><span class="ir-k">Preferred App Type</span><span class="ir-v">${esc(hp.preferredAppGroupType||'—')}</span></div>
+        <div class="ir"><span class="ir-k">Public Network</span><span class="ir-v">${hp.publicNetworkAccess===false?'<span class="pill p-amber">Private Only</span>':'<span class="pill p-green">Enabled</span>'}</span></div>
         <div class="ir"><span class="ir-k">Start VM on Connect</span><span class="ir-v">${hp.startVMOnConnect?'<span class="pill p-green">Enabled</span>':'<span class="pill p-gray">Disabled</span>'}</span></div>
         <div class="ir"><span class="ir-k">Diagnostics</span><span class="ir-v">${hp.diagnosticsEnabled?'<span class="pill p-green">Enabled</span>':'<span class="pill p-red">Not Configured</span>'}</span></div>
         <div class="ir"><span class="ir-k">Reg Token</span><span class="ir-v"><span class="pill ${hp.registrationTokenStatus==='Active'?'p-amber':'p-gray'}">${esc(hp.registrationTokenStatus||'None')}</span></span></div>
         <div class="ir"><span class="ir-k">Scaling Plan</span><span class="ir-v">${arr(hp.scalingPlans).length?arr(hp.scalingPlans).map(sp=>`<span class="pill p-cyan">${esc(sp.name)}</span>`).join(' '):'<span class="pill p-amber">None</span>'}</span></div>
+        ${hp.description?`<div class="ir"><span class="ir-k">Description</span><span class="ir-v">${esc(hp.description)}</span></div>`:''}
+        ${Object.keys(hp.tags||{}).length?`<div class="ir"><span class="ir-k">Tags</span><span class="ir-v">${Object.entries(hp.tags).map(([k,v])=>`<span class="rdp-prop"><span class="rdp-k">${esc(k)}</span><span class="rdp-v">${esc(v)}</span></span>`).join('')}</span></div>`:''}
+        <div class="ir"><span class="ir-k">Resource ID</span><span class="ir-v" style="font-size:9px;word-break:break-all">${esc(hp.id||'—')} ${hp.id?copyBtn(hp.id):''}</span></div>
       </div>
       <div>
         <div class="kpi-grid g3">
@@ -2671,6 +2686,9 @@ function renderWorkspaces(){
           <div class="ir"><span class="ir-k">Resource Group</span><span class="ir-v">${esc(ws.resourceGroup||'—')}</span></div>
           <div class="ir"><span class="ir-k">Location</span><span class="ir-v">${esc(ws.location||'—')}</span></div>
           <div class="ir"><span class="ir-k">Friendly Name</span><span class="ir-v">${esc(ws.friendlyName||'—')}</span></div>
+          ${ws.description?`<div class="ir"><span class="ir-k">Description</span><span class="ir-v">${esc(ws.description)}</span></div>`:''}
+          ${Object.keys(ws.tags||{}).length?`<div class="ir"><span class="ir-k">Tags</span><span class="ir-v">${Object.entries(ws.tags).map(([k,v])=>`<span class="rdp-prop"><span class="rdp-k">${esc(k)}</span><span class="rdp-v">${esc(v)}</span></span>`).join('')}</span></div>`:''}
+          <div class="ir"><span class="ir-k">Resource ID</span><span class="ir-v" style="font-size:9px;word-break:break-all">${esc(ws.id||'—')} ${ws.id?copyBtn(ws.id):''}</span></div>
         </div>
         <div>
           <div class="ir"><span class="ir-k">Diagnostics</span><span class="ir-v">${ws.diagnosticsEnabled?'<span class="pill p-green">Enabled</span>':'<span class="pill p-amber">Not Configured</span>'}</span></div>
@@ -2780,10 +2798,11 @@ function renderDesktops(){
       <div id="${deskId}" class="coll-body">
       <div class="col2" style="margin-bottom:10px">
         <div>
+          <div class="ir"><span class="ir-k">Friendly Name</span><span class="ir-v">${esc(ag.friendlyName&&ag.friendlyName!==ag.name?ag.friendlyName:'—')}</span></div>
           <div class="ir"><span class="ir-k">Resource Group</span><span class="ir-v">${esc(ag.resourceGroup||'—')}</span></div>
           <div class="ir"><span class="ir-k">Workspace</span><span class="ir-v">${esc(ws?.friendlyName||ws?.name||ag.workspaceFriendlyName||'—')}</span></div>
           <div class="ir"><span class="ir-k">Host Pool</span><span class="ir-v"><span class="pill p-cyan">${esc(ag.hostPoolName||'—')}</span></span></div>
-          <div class="ir"><span class="ir-k">Status</span><span class="ir-v"><span class="pill p-green">Visible</span></span></div>
+          <div class="ir"><span class="ir-k">Show in Portal</span><span class="ir-v">${ag.showInPortal!==false?'<span class="pill p-green">Visible</span>':'<span class="pill p-gray">Hidden</span>'}</span></div>
           ${ag.description?`<div class="ir"><span class="ir-k">Description</span><span class="ir-v">${esc(ag.description)}</span></div>`:''}
         </div>
         <div>
@@ -3574,6 +3593,7 @@ const RB_ALL_SECTIONS = [
   {id:'workspaces',  label:'Workspaces',             icon:'⊞', isDefault:false},
   {id:'appgroups',   label:'Application Groups',     icon:'⊡', isDefault:false},
   {id:'applications',label:'Applications',           icon:'🚀', isDefault:false},
+  {id:'desktops',    label:'Session Desktops',       icon:'🖵', isDefault:false},
   {id:'sessionhosts',label:'Session Hosts',          icon:'💻', isDefault:true},
   {id:'sessions',    label:'User Sessions',          icon:'👤', isDefault:true},
   {id:'networking',  label:'Networking',             icon:'🌐', isDefault:false},
@@ -3608,6 +3628,12 @@ function rbOpen(){
   // Pre-fill exec textarea if empty
   const execTa = document.getElementById('rb-exec-text');
   if(execTa && !execTa.value) rbExecChange();
+  // Pre-fill author with connected UPN in Live mode
+  const authorEl = document.getElementById('rb-author');
+  if(authorEl && !authorEl.value && D?.displayConfig?.isLiveMode && D?.displayConfig?.collectedByUpn){
+    authorEl.value = D.displayConfig.collectedByUpn;
+  }
+  rbApplyLiveModeUI();
   $('export-modal').classList.add('open');
 }
 function rbBuildSecList(){
@@ -3631,7 +3657,17 @@ function rbSetAllSec(all){ RB_ALL_SECTIONS.forEach(s=>all?rbState.sections.add(s
 function rbSetDefaults(){ rbState.sections=new Set(RB_DEFAULT_SECTIONS); rbBuildSecList(); rbUpdateSummary(); rbMarkDirty(); }
 function rbMarkDirty(){ rbState.dirty=true; rbSetPreviewBtn(true); rbUpdateSummary(); }
 
+function rbApplyLiveModeUI(){
+  const isLive = D?.displayConfig?.isLiveMode===true;
+  const liveHide = ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes'];
+  liveHide.forEach(function(id){
+    const el = document.getElementById(id);
+    if(el) el.style.display = isLive ? 'none' : '';
+  });
+}
+
 const RB_EXEC_OPTIONS = {
+  '0': `This document provides an overview of the Azure Virtual Desktop (AVD) environment for [client], collected on [date] and prepared by [engineer].\n\nThe environment has been implemented to provide users with secure, reliable access to their desktops and applications from any supported device. It has been designed with availability, security, and ease of management in mind, with monitoring in place to support day-to-day operations and informed decision-making.\n\nThis document captures the current state of the environment and serves as a reference for operational teams, stakeholders, and future planning activities.`,
   '1': `This document provides an overview of the Azure Virtual Desktop (AVD) environment implemented for [client]. The platform has been designed to deliver secure, reliable access to applications and desktop services for end users, while providing flexibility to scale in line with business demand.\n\nThe environment has been built in line with Microsoft's recommended practices, with a strong emphasis on security, performance, and operational resilience. User access is centrally managed, session hosts are monitored for health and capacity, and logging has been configured to provide visibility into connection quality, user activity, and system performance.\n\nFrom an end-user perspective, the solution aims to provide a consistent and responsive experience across supported devices, whether accessing full desktops or published applications. From an operational perspective, the environment has been designed to be supportable, observable, and cost-aware, enabling informed decision-making as usage patterns evolve.\n\nThis document was collected on [date] and prepared by [engineer]. It acts as a reference point for the current state of the AVD environment and provides a foundation for ongoing optimisation, governance, and future enhancements.`,
   '2': `The Azure Virtual Desktop environment described in this document has been implemented to provide staff at [client] with secure and dependable access to their working environments, regardless of location. The solution replaces traditional on-premises approaches with a modern, cloud-based platform that is more flexible and easier to manage.\n\nParticular attention has been given to the user experience, including logon behaviour, session performance, and network connectivity. Monitoring and reporting capabilities are in place to ensure issues can be identified early and addressed proactively, rather than reactively.\n\nFrom an operational standpoint, the environment has been structured to support day-to-day administration, troubleshooting, and capacity planning, while maintaining clear visibility over usage and cost.\n\nThis document was collected on [date] and prepared by [engineer]. The remainder of this document provides further detail on the environment's configuration, usage characteristics, and operational considerations.`,
   '3': `This document outlines the current Azure Virtual Desktop (AVD) environment for [client] and how it supports secure, scalable delivery of applications and desktop services to users.\n\nThe platform has been implemented using Microsoft-recommended design principles, with controls in place to support security, availability, and performance. Usage monitoring and reporting have been enabled to provide insight into user behaviour, session health, and resource consumption.\n\nThe solution is intended to deliver a reliable experience for users while giving the organisation clear visibility and control over the environment. This document was collected on [date], prepared by [engineer], and serves as both a high-level overview for stakeholders and a reference guide for ongoing operation and future planning.`,
@@ -3640,7 +3676,7 @@ const RB_EXEC_OPTIONS = {
   '6': `This document describes the Azure Virtual Desktop environment currently in place for [client] and how it supports secure remote access to applications and desktops. The solution has been designed to balance user experience, security, and operational efficiency.\n\nFrom a user perspective, the platform provides consistent access from supported devices, with monitoring in place to track connectivity and performance. From a support perspective, the environment offers clear visibility into usage patterns and system health, enabling issues to be addressed quickly and effectively.\n\nThis document was collected on [date] and prepared by [engineer]. The intention is to provide a clear, shared understanding of how the environment operates today and to serve as a baseline for ongoing optimisation and future development.`
 };
 function rbExecChange(){
-  const val = document.querySelector('input[name="rb-exec-style"]:checked')?.value||'1';
+  const val = document.querySelector('input[name="rb-exec-style"]:checked')?.value||'0';
   const ta = document.getElementById('rb-exec-text');
   if(!ta) return;
   ta.value = RB_EXEC_OPTIONS[val]||'';
@@ -3785,6 +3821,12 @@ function rbBuildMarkdown(){
   const shs=arr(D.sessionHosts).length?arr(D.sessionHosts):hps.flatMap(hp=>arr(hp.sessionHosts));
   const sessions=arr(D.sessions).length?arr(D.sessions):hps.flatMap(hp=>arr(hp.sessionHosts).flatMap(sh=>arr(sh.sessions)));
   const sec=id=>rbState.sections.has(id);
+  const shutdownHosts=s.shutdownHosts||0;
+  const activeHosts=(s.totalSessionHosts||0)-shutdownHosts;
+  const prodHps=hps.filter(hp=>!/uat|dev|test/i.test(hp.name||''));
+  const prodPoolsWithoutScaling=prodHps.filter(hp=>!hp.hasScalingPlan).length;
+  const diagNote=hps.length>prodHps.length?` (${hps.length-prodHps.length} non-prod excluded)`:'';
+  const allFindings=hps.flatMap(hp=>arr(hp.securityFindings));
   const now=new Date();
   const client=rbMeta('rb-client')||D.subscriptionName||'—';
   const envName=rbMeta('rb-env')||D.subscriptionName||'—';
@@ -3843,14 +3885,15 @@ function rbBuildMarkdown(){
     L.push('\n## Infrastructure Overview\n');
     L.push('| Metric | Value |'); L.push('|--------|-------|');
     L.push(`| Host Pools | ${s.hostPoolCount??'—'} (${s.pooledHostPools||0} pooled) |`);
-    L.push(`| Session Hosts | ${s.totalSessionHosts??'—'} (${s.availableHosts||0} available) |`);
+    L.push(`| Session Hosts | ${s.totalSessionHosts??'—'} (${s.availableHosts||0} available · ${shutdownHosts} powered off) |`);
     L.push(`| Active Sessions | ${s.totalActiveSessions??'—'} |`);
     L.push(`| Disconnected | ${s.totalDisconnectedSessions??'—'} |`);
     L.push(`| Workspaces | ${s.avdWorkspaceCount??'—'} |`);
     L.push(`| App Groups | ${s.applicationGroupCount??'—'} |`);
-    L.push(`| Scaling Plans | ${s.scalingPlanCount??'—'} (${s.hostPoolsWithoutScaling||0} without) |`);
+    L.push(`| Scaling Plans | ${s.scalingPlanCount??'—'} (${prodPoolsWithoutScaling} prod pools without) |`);
     L.push(`| FSLogix | ${s.hostsWithFSLogixDetected??'—'} of ${s.totalSessionHosts||0} hosts |`);
-    L.push(`| Health | ${s.overallHealthPct??'—'}% |`);
+    L.push(`| Health | ${s.overallHealthPct??'—'}% (${s.availableHosts||0}/${activeHosts} active hosts) |`);
+    L.push(`| Diagnostics Coverage | ${prodHps.filter(hp=>hp.diagnosticsEnabled).length} of ${prodHps.length} prod pools${diagNote} |`);
     if(s.costAvailable) L.push(`| AVD Cost MTD | ${cur} ${s.currentMonthCost?.toFixed(2)??'—'} |`);
     // Note: security findings are in the dedicated Recommendations section — not duplicated here
   }
@@ -3858,11 +3901,16 @@ function rbBuildMarkdown(){
     L.push('\n---\n## Host Pools\n');
     hps.forEach(hp=>{
       L.push(`### ${hp.name} [${hp.hostPoolType}]`);
+      if(hp.friendlyName&&hp.friendlyName!==hp.name) L.push(`- **Friendly Name:** ${hp.friendlyName}`);
+      if(hp.description) L.push(`- **Description:** ${hp.description}`);
       L.push(`- **RG:** ${hp.resourceGroup||'—'} · **Location:** ${hp.location||'—'} · **LB:** ${hp.loadBalancerType||'—'}`);
+      L.push(`- **Max Sessions:** ${hp.maxSessionLimit??'—'} · **Preferred App Type:** ${hp.preferredAppGroupType||'—'}`);
+      L.push(`- **Public Network:** ${hp.publicNetworkAccess===false?'Private Only':'Enabled'} · **Start VM on Connect:** ${hp.startVMOnConnect?'Yes':'No'}`);
       L.push(`- **Session Hosts:** ${hp.sessionHostCount||0} (${hp.sessionHostsAvailable||0} avail, ${hp.sessionHostsUnavailable||0} unavail)`);
       L.push(`- **Sessions:** ${hp.activeSessions||0} active, ${hp.disconnectedSessions||0} disconnected · **Health:** ${hp.healthPct??0}%`);
-      L.push(`- **Start VM on Connect:** ${hp.startVMOnConnect?'Yes':'No'} · **Diagnostics:** ${hp.diagnosticsEnabled?'Enabled':'Not configured'}`);
-      L.push(`- **Scaling Plan:** ${arr(hp.scalingPlans).map(sp=>sp.name).join(', ')||'None'}`);
+      L.push(`- **Diagnostics:** ${hp.diagnosticsEnabled?'Enabled':'Not configured'} · **Scaling Plan:** ${arr(hp.scalingPlans).map(sp=>sp.name).join(', ')||'None'}`);
+      if(Object.keys(hp.tags||{}).length) L.push(`- **Tags:** ${Object.entries(hp.tags).map(([k,v])=>`\`${k}: ${v}\``).join(', ')}`);
+      L.push(`- **Resource ID:** \`${hp.id||'—'}\``);
       if(hp.customRdpProperties) L.push(`- **RDP:** \`${hp.customRdpProperties}\``);
       const f=arr(hp.securityFindings);
       if(f.length){ L.push('\n**Security Findings:**'); f.forEach(x=>L.push(`- [${x.severity}] ${x.finding}`)); }
@@ -3888,9 +3936,18 @@ function rbBuildMarkdown(){
   }
   if(sec('workspaces')&&wss.length){
     L.push('\n---\n## Workspaces\n');
-    L.push('| Workspace | Friendly Name | RG | App Groups | Diagnostics |');
-    L.push('|-----------|---------------|----|------------|-------------|');
-    wss.forEach(ws=>L.push(`| ${ws.name} | ${ws.friendlyName||'—'} | ${ws.resourceGroup||'—'} | ${ws.appGroupCount||0} | ${ws.diagnosticsEnabled?'✓':'✗'} |`));
+    wss.forEach(ws=>{
+      const wsAgs=ags.filter(ag=>ag.workspaceId===ws.id||ag.workspaceName===ws.name);
+      L.push(`### ${ws.name}`);
+      if(ws.friendlyName&&ws.friendlyName!==ws.name) L.push(`- **Friendly Name:** ${ws.friendlyName}`);
+      if(ws.description) L.push(`- **Description:** ${ws.description}`);
+      L.push(`- **Resource Group:** ${ws.resourceGroup||'—'} · **Location:** ${ws.location||'—'}`);
+      L.push(`- **Diagnostics:** ${ws.diagnosticsEnabled?'Enabled':'Not Configured'}`);
+      if(Object.keys(ws.tags||{}).length) L.push(`- **Tags:** ${Object.entries(ws.tags).map(([k,v])=>`\`${k}: ${v}\``).join(', ')}`);
+      L.push(`- **Resource ID:** \`${ws.id||'—'}\``);
+      if(wsAgs.length){ L.push('\n**App Groups:**'); wsAgs.forEach(ag=>L.push(`- ${ag.name} [${ag.applicationGroupType}]`)); }
+      L.push('');
+    });
   }
   if(sec('appgroups')&&ags.length){
     L.push('\n---\n## Application Groups\n');
@@ -3906,6 +3963,21 @@ function rbBuildMarkdown(){
       const stdRole='Desktop Virtualization User';
       if(allA.length){ L.push('\n**Assignments:**'); allA.forEach(a=>{ const nonStd=a.role&&a.role!==stdRole?` ⚠ ${a.role}`:''; L.push(`- ${a.displayName||a.objectId||'—'} [${a.objectType}]${nonStd}`); }); }
       if(ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length){ L.push('\n**Apps:**'); arr(ag.remoteApps).forEach(a=>L.push(`- \`${a.name}\` → \`${a.filePath||'—'}\``)); }
+      L.push('');
+    });
+  }
+  const deskAgs=ags.filter(ag=>ag.applicationGroupType==='Desktop');
+  if(sec('desktops')&&deskAgs.length){
+    L.push('\n---\n## Session Desktops\n');
+    deskAgs.forEach(ag=>{
+      L.push(`### ${ag.name}`);
+      if(ag.friendlyName&&ag.friendlyName!==ag.name) L.push(`- **Friendly Name:** ${ag.friendlyName}`);
+      if(ag.description) L.push(`- **Description:** ${ag.description}`);
+      L.push(`- **Workspace:** ${ag.workspaceFriendlyName||ag.workspaceName||'—'} · **Host Pool:** ${ag.hostPoolName||'—'}`);
+      L.push(`- **Show in Portal:** ${ag.showInPortal!==false?'Yes':'No'}`);
+      const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
+      const stdRole='Desktop Virtualization User';
+      if(allA.length){ L.push('\n**Assignments:**'); allA.forEach(a=>{ const nonStd=a.role&&a.role!==stdRole?` ⚠ ${a.role}`:''; L.push(`- ${a.displayName||a.objectId||'—'} [${a.objectType}]${nonStd}`); }); }
       L.push('');
     });
   }
@@ -4001,6 +4073,11 @@ function rbBuildHTMLDoc(){
   const sessions= arr(D?.sessions).length ? arr(D?.sessions) : hps.flatMap(hp=>arr(hp.sessionHosts).flatMap(sh=>arr(sh.sessions)));
   const cur     = s.currency||'';
   const sec     = id => rbState.sections.has(id);
+  const shutdownHosts = s.shutdownHosts||0;
+  const activeHosts   = (s.totalSessionHosts||0) - shutdownHosts;
+  const prodHps       = hps.filter(hp=>!/uat|dev|test/i.test(hp.name||''));
+  const prodPoolsWithoutScaling = prodHps.filter(hp=>!hp.hasScalingPlan).length;
+  const diagNote      = hps.length>prodHps.length?` (${hps.length-prodHps.length} non-prod excluded)`:'';
 
   // ── RDP Reference table (inline — same data for PS1 and API) ────
   const RDP_REF = {
@@ -4205,7 +4282,7 @@ function rbBuildHTMLDoc(){
   }
 
 
-  // ── 2. OVERVIEW ────────────────────────────────────────────────
+   // ── 2. OVERVIEW ────────────────────────────────────────────────
   if(sec('overview')){
     const isLive = D?.displayConfig?.isLiveMode===true;
     let ovHtml = sectionHeader(secNum++, '⬛', 'Infrastructure Overview', `${D?.subscriptionName||sub}`, 'sec-overview', `${D?.subscriptionName||sub}`);
@@ -4243,12 +4320,26 @@ function rbBuildHTMLDoc(){
       );
     } else {
       ovHtml += kpiRow(
-        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
-        kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
+        //kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),
+        //kpiBox('Scaling Plans', s.scalingPlanCount||0, `${s.hostPoolsWithoutScaling||0} without`, (s.hostPoolsWithoutScaling||0)>0?'amber':'green'),
+        //kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
+        //kpiBox('FSLogix Coverage', (s.hostsWithFSLogixDetected||0)+'/'+s.totalSessionHosts, '', s.hostsWithFSLogixDetected===s.totalSessionHosts?'green':'amber')
+		kpiBox('Host Pools', s.hostPoolCount||0, `${s.pooledHostPools||0} pooled · ${s.personalHostPools||0} personal`, 'cyan'),
         kpiBox('Workspaces', s.avdWorkspaceCount||0, '', 'blue'),
-        kpiBox('FSLogix Coverage', (s.hostsWithFSLogixDetected||0)+'/'+s.totalSessionHosts, '', s.hostsWithFSLogixDetected===s.totalSessionHosts?'green':'amber')
+		kpiBox('Session Hosts', s.totalSessionHosts||0, `${s.availableHosts||0} available · ${shutdownHosts} powered off`, activeHosts>0&&(s.availableHosts||0)===activeHosts?'green':'amber'),
+		kpiBox('Active Sessions', s.totalActiveSessions||0, `${s.totalDisconnectedSessions||0} disconnected`, 'green')
       );
-      const insightsSumm=getInsightsSummary(hps);
+	  
+	  ovHtml += kpiRow(
+        kpiBox('Application Groups', s.applicationGroupCount||0, '', 'cyan'),        
+		kpiBox('Resource Groups', arr(D?.resourceGroups).length, '', 'blue'),
+		//kpiBox('Applications', liveApps, 'published RemoteApps', 'cyan'),
+		kpiBox('Scaling Plans', s.scalingPlanCount||0, `${prodPoolsWithoutScaling} prod pools without`, prodPoolsWithoutScaling>0?'amber':'green')
+		//kpiBox('Group Assignments', groups, 'best practice', 'green')
+		//kpiBox('RBAC Assignments', liveAssignees.length, `${liveAssignees.filter(a=>a.objectType==='Group').length} groups`, 'cyan')
+      );
+	  
+      const insightsSumm=getInsightsSummary(prodHps);
       if(insightsSumm.total>0){
         const iCol=insightsSumm.complete===insightsSumm.total?'green':insightsSumm.disabled===insightsSumm.total?'red':'amber';
         ovHtml += kpiRow(
@@ -4271,6 +4362,7 @@ function rbBuildHTMLDoc(){
           ovHtml += '</div>';
         }
       }
+	  
       ovHtml += docTable(
         ['Property','Value'],
         [
@@ -4278,7 +4370,7 @@ function rbBuildHTMLDoc(){
           ['Tenant', D?.tenantName||D?.tenantId||'—'],
           ['Data Collected', D?.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'],
           ['Schema Version', D?.schemaVersion||'—'],
-          ['Diagnostics Coverage', `${s.hostPoolsWithDiagnostics||0} of ${hps.length} host pools`],
+          ['Diagnostics Coverage', `${prodHps.filter(hp=>hp.diagnosticsEnabled).length} of ${prodHps.length} prod host pools${diagNote}`],
           ['Session Detail Collected', s.sessionDetailCollected?'Yes':'No'],
         ],
         {colWidths:['35%','65%']}
@@ -4310,12 +4402,20 @@ function rbBuildHTMLDoc(){
           <span style="margin-left:auto">${healthBar(hp.healthPct||0)}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#475569">
+          ${hp.friendlyName&&hp.friendlyName!==hp.name?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">FRIENDLY NAME</span><br>${esc(hp.friendlyName)}</div>`:''}
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE GROUP</span><br>${esc(hp.resourceGroup||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOCATION</span><br>${esc(hp.location||'—')}</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOAD BALANCER</span><br>${esc(hp.loadBalancerType||'—')}</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">MAX SESSIONS</span><br>${esc(hp.maxSessionLimit||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">START VM ON CONNECT</span><br>${hp.startVMOnConnect?'<span style="color:#059669">Enabled</span>':'Disabled'}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">PUBLIC NETWORK</span><br>${hp.publicNetworkAccess===false?'<span style="color:#d97706">Private Only</span>':'Enabled'}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">PREFERRED APP TYPE</span><br>${esc(hp.preferredAppGroupType||'—')}</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DIAGNOSTICS</span><br>${hp.diagnosticsEnabled?'<span style="color:#059669">Enabled</span>':'<span style="color:#d97706">Not Configured</span>'}</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ACTIVE SESSIONS</span><br><strong>${hp.activeSessions||0}</strong> active · ${hp.disconnectedSessions||0} disconnected</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SCALING PLAN</span><br>${arr(hp.scalingPlans).map(sp=>esc(sp.name)).join(', ')||'<span style="color:#d97706">None assigned</span>'}</div>
+          ${hp.description?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DESCRIPTION</span><br>${esc(hp.description)}</div>`:''}
+          ${Object.keys(hp.tags||{}).length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${Object.entries(hp.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
+          <div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(hp.id||'—')}</code></div>
         </div>
         ${hpF.length?`<div style="margin-top:8px;font-family:'Courier New',monospace;font-size:9px;color:#d97706">⚠ ${hpF.length} finding${hpF.length!==1?'s':''} — see Recommendations section</div>`:''}
       </div>`;
@@ -4351,10 +4451,25 @@ function rbBuildHTMLDoc(){
   if(sec('workspaces') && arr(D?.avdWorkspaces).length){
     const wss=arr(D.avdWorkspaces);
     let wsHtml = sectionHeader(secNum++, '⊞', 'Workspaces', `${wss.length} workspace${wss.length!==1?'s':''}`, 'sec-workspaces', `${wss.length} workspace${wss.length!==1?'s':''}`);
-    wsHtml += docTable(
-      ['Workspace','Friendly Name','Resource Group','App Groups','Diagnostics'],
-      wss.map(ws=>[esc(ws.name), esc(ws.friendlyName||'—'), esc(ws.resourceGroup||'—'), ws.appGroupCount||0, ws.diagnosticsEnabled?'<span style="color:#059669">Enabled</span>':'<span style="color:#d97706">Not Configured</span>'])
-    );
+    wss.forEach(ws=>{
+      const wsAgs=ags.filter(ag=>ag.workspaceId===ws.id||ag.workspaceName===ws.name);
+      wsHtml+=`<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-weight:700;font-size:13px">${esc(ws.name)}</span>
+          ${ws.friendlyName&&ws.friendlyName!==ws.name?`<span style="font-size:11px;color:#64748b">${esc(ws.friendlyName)}</span>`:''}
+          ${ws.diagnosticsEnabled?pill('Diagnostics','green'):pill('No Diagnostics','amber')}
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">${wsAgs.length} app group${wsAgs.length!==1?'s':''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
+          <span><b>Resource Group:</b> ${esc(ws.resourceGroup||'—')}</span>
+          <span><b>Location:</b> ${esc(ws.location||'—')}</span>
+          ${ws.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ws.description)}</span>`:''}
+          ${Object.keys(ws.tags||{}).length?`<span style="grid-column:1/-1"><b>Tags:</b> ${Object.entries(ws.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</span>`:''}
+          <span style="grid-column:1/-1"><b>Resource ID:</b> <code style="font-size:9px;color:#0055aa">${esc(ws.id||'—')}</code></span>
+        </div>
+        ${wsAgs.length?docTable(['App Group','Type','Host Pool'],wsAgs.map(ag=>[esc(ag.name||'—'),pill(ag.applicationGroupType||'—',ag.applicationGroupType==='Desktop'?'blue':'purple'),esc(ag.hostPoolName||'—')])):''}
+      </div>`;
+    });
     sections.push(wsHtml);
   }
 
@@ -4403,6 +4518,33 @@ function rbBuildHTMLDoc(){
       );
       sections.push(appsHtml);
     }
+  }
+
+  // ── 6c. SESSION DESKTOPS ────────────────────────────────────────
+  const deskAgsR=ags.filter(g=>g.applicationGroupType==='Desktop');
+  if(sec('desktops')&&deskAgsR.length){
+    let deskHtml=sectionHeader(secNum++,'🖵','Session Desktops',`${deskAgsR.length} desktop${deskAgsR.length!==1?'s':''}`, 'sec-desktops', `${deskAgsR.length} desktop${deskAgsR.length!==1?'s':''}`);
+    deskAgsR.forEach(ag=>{
+      const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
+      const stdRole='Desktop Virtualization User';
+      deskHtml+=`<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-weight:700;font-size:13px">${esc(ag.name)}</span>
+          ${pill('Desktop','blue')}
+          ${ag.showInPortal!==false?pill('Visible in Portal','green'):pill('Hidden','gray')}
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">${allA.length} assigned</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
+          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<span><b>Friendly Name:</b> ${esc(ag.friendlyName)}</span>`:''}
+          <span><b>Workspace:</b> ${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</span>
+          <span><b>Host Pool:</b> ${esc(ag.hostPoolName||'—')}</span>
+          <span><b>Resource Group:</b> ${esc(ag.resourceGroup||'—')}</span>
+          ${ag.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ag.description)}</span>`:''}
+        </div>
+        ${allA.length?docTable(['Principal','Type'],allA.map(a=>{const nonStd=a.role&&a.role!==stdRole?` <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px">${esc(a.role)}</span>`:'';return[esc(a.displayName||a.signInName||a.objectId||'—')+nonStd,pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray')];})):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
+      </div>`;
+    });
+    sections.push(deskHtml);
   }
 
   // ── 7. SESSION HOSTS ──────────────────────────────────────────
@@ -4675,8 +4817,8 @@ function rbBuildHTMLDoc(){
 
     if(sec('intelligence')){
     const met=D?.metrics||{};
-    const insSum=getInsightsSummary(hps);
-    let intHtml = sectionHeader(secNum++, '🔍', 'AVD Diagnostics & Insights Coverage', `${hps.length} host pool${hps.length!==1?'s':''}`, 'sec-intelligence');
+    const insSum=getInsightsSummary(prodHps);
+    let intHtml = sectionHeader(secNum++, '🔍', 'AVD Diagnostics & Insights Coverage', `${prodHps.length} prod host pool${prodHps.length!==1?'s':''}${diagNote}`, 'sec-intelligence');
     // Summary KPIs
     const diagComplete=insSum.complete, diagPartial=insSum.partial, diagNone=insSum.disabled;
     intHtml += kpiRow(
@@ -4887,6 +5029,7 @@ function rbBuildHTMLDoc(){
   if(sec('workspaces')&&arr(D?.avdWorkspaces).length) tocEntries.push({label:'Workspaces',id:'sec-workspaces'});
   if(sec('appgroups')&&ags.length) tocEntries.push({label:'Application Groups',id:'sec-appgroups'});
   if(sec('applications')) tocEntries.push({label:'Published Applications',id:'sec-applications'});
+  if(sec('desktops')&&ags.filter(g=>g.applicationGroupType==='Desktop').length) tocEntries.push({label:'Session Desktops',id:'sec-desktops'});
   if(sec('sessionhosts')&&shs.length) tocEntries.push({label:'Session Hosts',id:'sec-sessionhosts'});
   if(sec('sessions')&&sessions.length) tocEntries.push({label:'User Sessions',id:'sec-sessions'});
   if(sec('rbac')) tocEntries.push({label:'RBAC Assignments',id:'sec-rbac'});
@@ -5074,6 +5217,11 @@ async function rbBuildDOCX(sub){
       const sessions= arr(D?.sessions).length?arr(D?.sessions):hps.flatMap(hp=>arr(hp.sessionHosts).flatMap(sh=>arr(sh.sessions)));
       const secFn   = id => rbState.sections.has(id);
       const allF    = hps.flatMap(hp=>arr(hp.securityFindings));
+      const shutdownHosts = s.shutdownHosts||0;
+      const activeHosts   = (s.totalSessionHosts||0) - shutdownHosts;
+      const prodHps       = hps.filter(hp=>!/uat|dev|test/i.test(hp.name||''));
+      const prodPoolsWithoutScaling = prodHps.filter(hp=>!hp.hasScalingPlan).length;
+      const diagNote      = hps.length>prodHps.length?` (${hps.length-prodHps.length} non-prod excluded)`:'';
       const proj    = costProjection(s.currentMonthCost, D?.generatedAt);
 
       const C = {
@@ -5115,6 +5263,7 @@ async function rbBuildDOCX(sub){
       if(secFn('workspaces')&&arr(D?.avdWorkspaces).length) tocItems2.push({label:'Workspaces'});
       if(secFn('appgroups')&&ags.length) tocItems2.push({label:'Application Groups'});
       if(secFn('applications')) tocItems2.push({label:'Published Applications'});
+      if(secFn('desktops')&&ags.filter(g=>g.applicationGroupType==='Desktop').length) tocItems2.push({label:'Session Desktops'});
       if(secFn('sessionhosts')&&shs.length) tocItems2.push({label:'Session Hosts'});
       if(secFn('sessions')&&sessions.length) tocItems2.push({label:'User Sessions'});
       if(secFn('rbac')) tocItems2.push({label:'RBAC Assignments'});
@@ -5134,14 +5283,17 @@ async function rbBuildDOCX(sub){
       else children.push(para([run('✓  No security findings identified.',{bold:true,color:C.GREEN})],{after:80}));
       if(s.costAvailable&&s.currentMonthCost!=null){ const p2=costProjection(s.currentMonthCost,D?.generatedAt); children.push(para(`Month-to-date AVD spend is ${cur} ${s.currentMonthCost.toFixed(2)}${p2?`, tracking to ~${cur} ${p2.toFixed(2)} by end of month`:''}${s.previousMonthCost&&p2?` (${p2>s.previousMonthCost?'↑':'↓'}${Math.abs(Math.round(((p2-s.previousMonthCost)/s.previousMonthCost)*100))}% vs last month)`:''}.`,{after:100})); }
       if(scope){ children.push(divider()); children.push(para([runMono('Scope: ',{bold:true}),run(scope,{italics:true})],{after:80})); }
-      children.push(kpiTable([{label:'Host Pools',value:s.hostPoolCount||0,sub:`${s.pooledHostPools||0} pooled`,colour:'cyan'},{label:'Session Hosts',value:s.totalSessionHosts||0,sub:`${s.availableHosts||0} available`,colour:s.overallHealthPct>=80?'green':'amber'},{label:'Active Sessions',value:s.totalActiveSessions||0,sub:`${s.totalDisconnectedSessions||0} disc`,colour:'blue'},{label:'Health',value:(s.overallHealthPct||0)+'%',sub:`${s.hostPoolsWithDiagnostics||0}/${hps.length} diag`,colour:s.overallHealthPct>=80?'green':s.overallHealthPct>=60?'amber':'red'}]));
+      children.push(kpiTable([{label:'Host Pools',value:s.hostPoolCount||0,sub:`${s.pooledHostPools||0} pooled`,colour:'cyan'},{label:'Session Hosts',value:s.totalSessionHosts||0,sub:`${s.availableHosts||0} avail · ${shutdownHosts} off`,colour:s.overallHealthPct>=80?'green':'amber'},{label:'Active Sessions',value:s.totalActiveSessions||0,sub:`${s.totalDisconnectedSessions||0} disc`,colour:'blue'},{label:'Health',value:(s.overallHealthPct||0)+'%',sub:`${prodHps.filter(hp=>hp.diagnosticsEnabled).length}/${prodHps.length} diag${diagNote}`,colour:s.overallHealthPct>=80?'green':s.overallHealthPct>=60?'amber':'red'}]));
       if(s.costAvailable) children.push(kpiTable([{label:'Prev Month',value:s.previousMonthCost!=null?`${cur} ${s.previousMonthCost.toFixed(0)}`:'—',sub:s.previousMonthFrom||'not collected',colour:'gray'},{label:'This Month MTD',value:`${cur} ${s.currentMonthCost?.toFixed(0)||'—'}`,sub:'month to date',colour:'cyan'},{label:'Projected EOM',value:costProjection(s.currentMonthCost,D?.generatedAt)?`${cur} ${costProjection(s.currentMonthCost,D?.generatedAt).toFixed(0)}`:'—',sub:'estimate',colour:'amber'},{label:'Wasted Spend',value:s.wastedSpendEstimate?`${cur} ${s.wastedSpendEstimate.toFixed(0)}`:'—',sub:`${s.wastedSpendHosts||0} idle`,colour:s.wastedSpendEstimate>0?'amber':'green'}]));
       children.push(pageBreak());
       // Overview
-      if(secFn('overview')){ children.push(sectionH(secNum++,'Infrastructure Overview',D?.subscriptionName||'')); children.push(kvTable([['Subscription',D?.subscriptionName||D?.subscriptionId||'—'],['Tenant',D?.tenantName||D?.tenantId||'—'],['Data Collected',D?.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'],['Host Pools',`${s.hostPoolCount||0} (${s.pooledHostPools||0} pooled, ${s.personalHostPools||0} personal)`],['Session Hosts',`${s.totalSessionHosts||0} (${s.availableHosts||0} available)`],['Active Sessions',s.totalActiveSessions||0],['Application Groups',s.applicationGroupCount||0],['Scaling Plans',`${s.scalingPlanCount||0} (${s.hostPoolsWithoutScaling||0} without)`],['FSLogix',`${s.hostsWithFSLogixDetected||0} of ${s.totalSessionHosts||0} hosts`],['Health',`${s.overallHealthPct||0}%`]])); if(allF.length){children.push(subH('Security Findings',C.RED));allF.forEach(f=>children.push(findingP(f.severity,f.finding)));} }
+      if(secFn('overview')){ children.push(sectionH(secNum++,'Infrastructure Overview',D?.subscriptionName||'')); children.push(kvTable([['Subscription',D?.subscriptionName||D?.subscriptionId||'—'],['Tenant',D?.tenantName||D?.tenantId||'—'],['Data Collected',D?.generatedAt?(new Date(D.generatedAt).toLocaleString()):'—'],['Host Pools',`${s.hostPoolCount||0} (${s.pooledHostPools||0} pooled, ${s.personalHostPools||0} personal)`],['Session Hosts',`${s.totalSessionHosts||0} (${s.availableHosts||0} available)`],['Active Sessions',s.totalActiveSessions||0],['Application Groups',s.applicationGroupCount||0],['Scaling Plans',`${s.scalingPlanCount||0} (${prodPoolsWithoutScaling} prod pools without)`],['FSLogix',`${s.hostsWithFSLogixDetected||0} of ${s.totalSessionHosts||0} hosts`],['Health',`${s.overallHealthPct||0}%`]])); if(allF.length){children.push(subH('Security Findings',C.RED));allF.forEach(f=>children.push(findingP(f.severity,f.finding)));} }
       // Host Pools
-      if(secFn('hostpools')&&hps.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Host Pools',`${hps.length} pool${hps.length!==1?'s':''}`)); children.push(kpiTable([{label:'Total',value:hps.length,sub:`${s.pooledHostPools||0} pooled`,colour:'cyan'},{label:'Capacity',value:hps.reduce((a,hp)=>a+(hp.totalCapacity||0),0),sub:'max sessions',colour:'blue'},{label:'Active Sessions',value:s.totalActiveSessions||0,colour:'green'},{label:'Drain Mode',value:s.drainModeHosts||0,colour:(s.drainModeHosts||0)>0?'amber':'green'}])); hps.forEach(hp=>{ const hpF=arr(hp.securityFindings); children.push(subH(`${hp.name}  [${hp.hostPoolType}]`,C.CYAN)); children.push(kvTable([['Resource Group',hp.resourceGroup||'—'],['Location',hp.location||'—'],['Load Balancer',hp.loadBalancerType||'—'],['Max Sessions',hp.maxSessionLimit??'—'],['Start VM on Connect',hp.startVMOnConnect?'Enabled':'Disabled'],['Session Hosts',`${hp.sessionHostCount||0} (${hp.sessionHostsAvailable||0} avail)`],['Active / Disc.',`${hp.activeSessions||0} active · ${hp.disconnectedSessions||0} disconnected`],['Health',`${hp.healthPct??0}%`],['Diagnostics',hp.diagnosticsEnabled?'Enabled':'Not configured'],['Scaling Plan',arr(hp.scalingPlans).map(sp=>sp.name).join(', ')||'None']])); if(hpF.length) hpF.forEach(f=>children.push(findingP(f.severity,f.finding))); }); }
+      if(secFn('hostpools')&&hps.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Host Pools',`${hps.length} pool${hps.length!==1?'s':''}`)); children.push(kpiTable([{label:'Total',value:hps.length,sub:`${s.pooledHostPools||0} pooled`,colour:'cyan'},{label:'Capacity',value:hps.reduce((a,hp)=>a+(hp.totalCapacity||0),0),sub:'max sessions',colour:'blue'},{label:'Active Sessions',value:s.totalActiveSessions||0,colour:'green'},{label:'Drain Mode',value:s.drainModeHosts||0,colour:(s.drainModeHosts||0)>0?'amber':'green'}])); hps.forEach(hp=>{ const hpF=arr(hp.securityFindings); children.push(subH(`${hp.name}  [${hp.hostPoolType}]`,C.CYAN)); children.push(kvTable([...(hp.friendlyName&&hp.friendlyName!==hp.name?[['Friendly Name',hp.friendlyName]]:[]),['Resource Group',hp.resourceGroup||'—'],['Location',hp.location||'—'],['Load Balancer',hp.loadBalancerType||'—'],['Max Sessions',hp.maxSessionLimit??'—'],['Preferred App Type',hp.preferredAppGroupType||'—'],['Public Network',hp.publicNetworkAccess===false?'Private Only':'Enabled'],['Start VM on Connect',hp.startVMOnConnect?'Enabled':'Disabled'],['Session Hosts',`${hp.sessionHostCount||0} (${hp.sessionHostsAvailable||0} avail)`],['Active / Disc.',`${hp.activeSessions||0} active · ${hp.disconnectedSessions||0} disconnected`],['Health',`${hp.healthPct??0}%`],['Diagnostics',hp.diagnosticsEnabled?'Enabled':'Not configured'],['Scaling Plan',arr(hp.scalingPlans).map(sp=>sp.name).join(', ')||'None'],...( hp.description?[['Description',hp.description]]:[]),...( Object.keys(hp.tags||{}).length?[['Tags',Object.entries(hp.tags).map(([k,v])=>k+': '+v).join(', ')]]:[]),['Resource ID',hp.id||'—']])); if(hpF.length) hpF.forEach(f=>children.push(findingP(f.severity,f.finding))); }); }
       // Session Hosts
+      if(secFn('workspaces')&&arr(D?.avdWorkspaces).length){ const wssD=arr(D?.avdWorkspaces); children.push(pageBreak()); children.push(sectionH(secNum++,'Workspaces',`${wssD.length} workspace${wssD.length!==1?'s':''}`)); wssD.forEach(ws=>{ const wsAgsD=ags.filter(ag=>ag.workspaceId===ws.id||ag.workspaceName===ws.name); children.push(subH((ws.friendlyName&&ws.friendlyName!==ws.name?ws.friendlyName+' ('+ws.name+')':ws.name),C.CYAN)); children.push(kvTable([['Resource Group',ws.resourceGroup||'—'],['Location',ws.location||'—'],['Friendly Name',ws.friendlyName||'—'],['Diagnostics',ws.diagnosticsEnabled?'Enabled':'Not Configured'],['App Groups',wsAgsD.map(ag=>ag.name).join(', ')||'None'],...(ws.description?[['Description',ws.description]]:[]),...(Object.keys(ws.tags||{}).length?[['Tags',Object.entries(ws.tags).map(([k,v])=>k+': '+v).join(', ')]]:[]),['Resource ID',ws.id||'—']])); }); }
+      const deskAgsD=ags.filter(g=>g.applicationGroupType==='Desktop');
+      if(secFn('desktops')&&deskAgsD.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Session Desktops',`${deskAgsD.length} desktop${deskAgsD.length!==1?'s':''}`)); children.push(dataTable(['Name','Friendly Name','Workspace','Host Pool','Show in Portal','Assignees'],deskAgsD.map(ag=>[esc(ag.name||'—'),esc(ag.friendlyName&&ag.friendlyName!==ag.name?ag.friendlyName:'—'),esc(ag.workspaceFriendlyName||ag.workspaceName||'—'),esc(ag.hostPoolName||'—'),ag.showInPortal!==false?'Visible':'Hidden',[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].length+' assigned']))); }
       if(secFn('sessionhosts')&&shs.length){ const avail=shs.filter(s=>s.status==='Available').length,unavail=shs.filter(s=>s.status==='Unavailable').length,drain=shs.filter(s=>s.drainMode).length; children.push(pageBreak()); children.push(sectionH(secNum++,'Session Hosts',`${shs.length} host${shs.length!==1?'s':''}`)); children.push(kpiTable([{label:'Available',value:avail,sub:`of ${shs.length}`,colour:avail===shs.length?'green':'amber'},{label:'Unavailable',value:unavail,colour:unavail>0?'red':'green'},{label:'Drain Mode',value:drain,colour:drain>0?'amber':'green'},{label:'FSLogix',value:(s.hostsWithFSLogixDetected||0)+'/'+shs.length,colour:s.hostsWithFSLogixDetected===shs.length?'green':'amber'}])); children.push(dataTable(['Session Host','Host Pool','Status','VM Size','Sessions','Patch','FSLogix'],shs.map(sh=>{const ps=patchStatus(sh.lastUpdate);return[sh.vmName||sh.name||'—',sh.hostPoolName||'—',sh.status||'—',sh.vmSize||'—',(sh.activeSessions||0)+' active',ps.label,sh.fslogixDetected?'✓':'—'];}))); }
       // User Sessions
       if(secFn('sessions')&&sessions.length){ const active=sessions.filter(s=>s.sessionState==='Active'),disc=sessions.filter(s=>s.sessionState==='Disconnected'); children.push(pageBreak()); children.push(sectionH(secNum++,'User Sessions',`${sessions.length} session${sessions.length!==1?'s':''}`)); children.push(kpiTable([{label:'Total',value:sessions.length,colour:'cyan'},{label:'Active',value:active.length,colour:'green'},{label:'Disconnected',value:disc.length,colour:disc.length>0?'amber':'green'},{label:'Unique Users',value:new Set(sessions.map(s=>s.userPrincipalName).filter(Boolean)).size,colour:'blue'}])); children.push(dataTable(['User','State','Session Host','Host Pool','Type','Connected'],sessions.map(s=>[s.userPrincipalName||'Unknown',s.sessionState||'—',(s.sessionHostName||'—').split('.')[0],s.hostPoolName||'—',s.applicationType||'Desktop',s.createTime||'—']))); }
@@ -5260,6 +5412,7 @@ const QR_MSAL_CONFIG = {
 };
 let qrMsalApp = null;
 let qrToken    = null;
+let qrUpn      = '';
 
 async function startQuickReport() {
   const btn = document.querySelector('.mode-lite .lp-mode-btn');
@@ -5289,6 +5442,7 @@ async function startQuickReport() {
       return;
     }
     qrShowSubPicker(subs, login.account.username);
+    qrUpn = login.account.username || login.account.name || '';
   } catch(e) {
     console.error('QR auth error:', e);
     alert(e.errorCode === 'user_cancelled' ? 'Sign-in cancelled.' : 'Auth failed: ' + (e.message || e));
@@ -5748,7 +5902,7 @@ async function qrCollect() {
         collectedAt:           now,
         currency:              'AUD'
       },
-      displayConfig: { isLiveMode: true },
+      displayConfig: { isLiveMode: true, collectedByUpn: qrUpn },
       reportConfig:  {}
     };
 
