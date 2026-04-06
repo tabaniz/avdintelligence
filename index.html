@@ -3662,8 +3662,8 @@ function rbSetFmt(fmt){
 }
 function rbToggleSec(id,checked){ if(checked) rbState.sections.add(id); else rbState.sections.delete(id); rbUpdateSummary(); rbMarkDirty(); }
 const LIVE_CONFIG = {
-  hiddenSections:     ['fslogix','cost','rdpanalysis','networking','intelligence'],
-  tickedSections:     ['overview','hostpools','sessionhosts','workspaces','appgroups','rbac','rginventory'],
+  hiddenSections:     ['fslogix','cost','rdpanalysis','intelligence','sessions'],
+  tickedSections:     ['overview','hostpools','sessionhosts','workspaces','rbac','rginventory'],
   hiddenUIFields:     ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes'],
   hiddenDocRows:      ['rb-doc-row-env','rb-doc-row-version'],
   skipPatchStatus:    true,
@@ -3681,11 +3681,13 @@ function rbSetAllSec(all){
     all?rbState.sections.add(s.id):rbState.sections.delete(s.id);
   });
   rbBuildSecList(); rbUpdateSummary(); rbMarkDirty();
+  if(isLive) rbApplyLiveModeUI();
 }
 function rbSetDefaults(){
   const isLive=D?.displayConfig?.isLiveMode===true;
   rbState.sections=isLive?new Set(RB_LIVE_TICKED_SECS):new Set(RB_DEFAULT_SECTIONS);
   rbBuildSecList(); rbUpdateSummary(); rbMarkDirty();
+  if(isLive) rbApplyLiveModeUI();
 }
 function rbMarkDirty(){ rbState.dirty=true; rbSetPreviewBtn(true); rbUpdateSummary(); }
 
