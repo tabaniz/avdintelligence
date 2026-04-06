@@ -4694,8 +4694,8 @@ function rbBuildHTMLDoc(){
             ${kvLine('Agent Ver',   sh.agentVersion||'—')}
             ${kvLine('OS Type',     sh.osType||'—')}
             ${kvLine('Power State', sh.powerState||'—')}
-            ${isLive ? '' : kvLine('Patch Status',`<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`)}
-            ${isLive ? '' : kvLine('FSLogix', sh.fslogixDetected?'<span style="color:#059669">✓ Detected</span>':'—')}
+            ${LIVE_CONFIG.skipPatchStatus||isLive ? '' : kvLine('Patch Status',`<span style="color:${ps.cls.includes('ok')?'#059669':ps.cls.includes('warn')?'#d97706':'#dc2626'}">${esc(ps.label)}</span>`)}
+            ${LIVE_CONFIG.skipFSLogix||isLive ? '' : kvLine('FSLogix', sh.fslogixDetected?'<span style="color:#059669">✓ Detected</span>':'—')}
           </div>
 
           <!-- Storage Details -->
@@ -5045,7 +5045,7 @@ function rbBuildHTMLDoc(){
   // ── 14. RG INVENTORY APPENDIX ────────────────────────────────
   const rgsData=arr(D?.resourceGroups).filter(rg=>rg!=null);
   // ── RECOMMENDATIONS (before appendices) ────────────────────────
-  {
+  if(!LIVE_CONFIG.skipConfigFindings || !isLive){
     // Collect ALL findings from all sources
     const allRecs = [];
     // Host pool findings — downgrade health to Low, skip diagnostics (covered by AVD Insights)
@@ -5217,11 +5217,11 @@ function rbBuildHTMLDoc(){
     <div style="font-family:'Courier New',monospace;font-size:9px;letter-spacing:2px;color:#00a8cc;text-transform:uppercase;margin-bottom:10px">Document Details</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:11px">
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">CLIENT</span><br><strong>${esc(client)}</strong></div>
-      ${isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ENVIRONMENT</span><br>${esc(envName)}</div>`}
+      ${LIVE_CONFIG.hiddenDocRows.includes('rb-doc-row-env')||isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ENVIRONMENT</span><br>${esc(envName)}</div>`}
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">PREPARED BY</span><br>${esc(author)}</div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">VERSION</span><br>${esc(version)}</div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATE</span><br>${esc(docDate)}</div>
-      ${isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATA COLLECTED</span><br>${dataDate}</div>`}
+      ${LIVE_CONFIG.hiddenDocRows.includes('rb-doc-row-version')||isLive ? '' : `<div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DATA COLLECTED</span><br>${dataDate}</div>`}
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SUBSCRIPTION</span><br><span style="font-size:10px">${esc(D?.subscriptionName||'—')}</span></div>
       <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TENANT</span><br><span style="font-size:10px">${esc(D?.tenantName||D?.tenantId||'—')}</span></div>
     </div>
