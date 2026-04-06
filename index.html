@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v5-63(66) | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -3974,6 +3974,7 @@ function rbBuildMarkdown(){
     sps.forEach(sp=>{
       L.push(`### ${sp.name}`);
       L.push(`- **TZ:** ${sp.timezone||'—'} · **Pools:** ${arr(sp.hostPoolRefs).map(r=>r.hostPoolName).join(', ')||'—'}`);
+      if(Object.keys(sp.tags||{}).length) L.push(`- **Tags:** ${Object.entries(sp.tags).map(([k,v])=>`\`${k}: ${v}\``).join(', ')}`);
       arr(sp.schedules).forEach(sc=>{
         L.push(`\n#### ${sc.name} (${arr(sc.daysOfWeek).join(', ')||'—'})`);
         L.push('| Phase | Start | Algorithm | Min Hosts | Capacity |');
@@ -4538,7 +4539,9 @@ function rbBuildHTMLDoc(){
     const sps=arr(D.scalingPlans);
     let spHtml = sectionHeader(secNum++, '⚖', 'Scaling Plans', `${sps.length} plan${sps.length!==1?'s':''}`, 'sec-scaling', `${sps.length} plan${sps.length!==1?'s':''}`);
     sps.forEach(sp=>{
-      spHtml += `<div style="margin-bottom:16px"><p style="font-weight:700;font-size:13px;color:#0d1117;margin-bottom:6px">${esc(sp.name)} <span style="font-size:10px;color:#94a3b8;font-weight:400">· ${esc(sp.timezone||'—')}</span></p>`;
+      const spTags=Object.entries(sp.tags||{});
+      spHtml += `<div style="margin-bottom:16px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px"><p style="font-weight:700;font-size:13px;color:#0d1117;margin-bottom:2px">${esc(sp.name)} <span style="font-size:10px;color:#94a3b8;font-weight:400">· ${esc(sp.timezone||'—')}</span></p>
+        <div style="font-size:11px;color:#475569;margin-bottom:6px">${esc(sp.resourceGroup||'—')} · ${esc(sp.location||'—')}${spTags.length?' · '+spTags.map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' '):''}</div>`;
       arr(sp.schedules).forEach(sc=>{
         spHtml += `<p style="font-size:11px;color:#475569;margin-bottom:4px;font-weight:600">${esc(sc.name)} — ${arr(sc.daysOfWeek).join(', ')||'—'}</p>`;
         spHtml += docTable(
@@ -5485,6 +5488,8 @@ async function rbBuildDOCX(sub){
       const deskAgsD=ags.filter(g=>g.applicationGroupType==='Desktop');
       if(secFn('desktops')&&deskAgsD.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Session Desktops',`${deskAgsD.length} desktop${deskAgsD.length!==1?'s':''}`)); children.push(dataTable(['Name','Friendly Name','Workspace','Host Pool','Show in Portal','Assignees'],deskAgsD.map(ag=>[esc(ag.name||'—'),esc(ag.friendlyName&&ag.friendlyName!==ag.name?ag.friendlyName:'—'),esc(ag.workspaceFriendlyName||ag.workspaceName||'—'),esc(ag.hostPoolName||'—'),ag.showInPortal!==false?'Visible':'Hidden',[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].length+' assigned']))); }
       if(secFn('sessionhosts')&&shs.length){ const avail=shs.filter(s=>s.status==='Available').length,unavail=shs.filter(s=>s.status==='Unavailable').length,drain=shs.filter(s=>s.drainMode).length; children.push(pageBreak()); children.push(sectionH(secNum++,'Session Hosts',`${shs.length} host${shs.length!==1?'s':''}`)); children.push(kpiTable([{label:'Available',value:avail,sub:`of ${shs.length}`,colour:avail===shs.length?'green':'amber'},{label:'Unavailable',value:unavail,colour:unavail>0?'red':'green'},{label:'Drain Mode',value:drain,colour:drain>0?'amber':'green'},{label:'FSLogix',value:(s.hostsWithFSLogixDetected||0)+'/'+shs.length,colour:s.hostsWithFSLogixDetected===shs.length?'green':'amber'}])); children.push(dataTable(['Session Host','Host Pool','Status','VM Size','Sessions','Patch','FSLogix'],shs.map(sh=>{const ps=patchStatus(sh.lastUpdate);return[sh.vmName||sh.name||'—',sh.hostPoolName||'—',sh.status||'—',sh.vmSize||'—',(sh.activeSessions||0)+' active',ps.label,sh.fslogixDetected?'✓':'—'];}))); }
+      // Scaling Plans
+      if(secFn('scaling')&&arr(D?.scalingPlans).length){ const spsW=arr(D.scalingPlans); children.push(pageBreak()); children.push(sectionH(secNum++,'Scaling Plans',`${spsW.length} plan${spsW.length!==1?'s':''}`)); spsW.forEach(sp=>{ children.push(subH(sp.name,C.CYAN)); children.push(kvTable([['Resource Group',sp.resourceGroup||'—'],['Location',sp.location||'—'],['Host Pool Type',sp.hostPoolType||'—'],['Host Pools',arr(sp.hostPoolReferences).map(r=>r.hostPoolId.split('/').pop()).join(', ')||'—'],...(Object.keys(sp.tags||{}).length?[['Tags',Object.entries(sp.tags).map(([k,v])=>k+': '+v).join(', ')]]:[]),['Resource ID',sp.id||'—']])); }); }
       // User Sessions
       if(secFn('sessions')&&sessions.length){ const active=sessions.filter(s=>s.sessionState==='Active'),disc=sessions.filter(s=>s.sessionState==='Disconnected'); children.push(pageBreak()); children.push(sectionH(secNum++,'User Sessions',`${sessions.length} session${sessions.length!==1?'s':''}`)); children.push(kpiTable([{label:'Total',value:sessions.length,colour:'cyan'},{label:'Active',value:active.length,colour:'green'},{label:'Disconnected',value:disc.length,colour:disc.length>0?'amber':'green'},{label:'Unique Users',value:new Set(sessions.map(s=>s.userPrincipalName).filter(Boolean)).size,colour:'blue'}])); children.push(dataTable(['User','State','Session Host','Host Pool','Type','Connected'],sessions.map(s=>[s.userPrincipalName||'Unknown',s.sessionState||'—',(s.sessionHostName||'—').split('.')[0],s.hostPoolName||'—',s.applicationType||'Desktop',s.createTime||'—']))); }
       // RBAC
@@ -5921,6 +5926,7 @@ async function qrCollect() {
           location:      sp.location || '',
           friendlyName:  props.friendlyName || sp.name,
           hostPoolType:  props.hostPoolType || '',
+          tags:          sp.tags || {},
           hostPoolReferences: (props.hostPoolReferences||[]).map(function(r){ return { hostPoolId: r.hostPoolArmPath, scalingPlanEnabled: r.scalingPlanEnabled }; }),
           schedules:     []
         });
