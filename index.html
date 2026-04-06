@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v5-63(64) | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -3599,12 +3599,12 @@ const RB_ALL_SECTIONS = [
   {id:'networking',  label:'Networking',                icon:'🌐', isDefault:false},
   {id:'rbac',        label:'RBAC Assignments',          icon:'🔑', isDefault:false},
   {id:'intelligence',label:'AVD Diagnostics',           icon:'🔍', isDefault:true},
-  {id:'rginventory', label:'RG Inventory (Appendix)',   icon:'📋', isDefault:false},
   {id:'applications',label:'Applications',              icon:'🚀', isDefault:false},
   {id:'fslogix',     label:'FSLogix',                   icon:'📦', isDefault:false},
   {id:'cost',        label:'Cost & FinOps',             icon:'💰', isDefault:true},
-  {id:'rdpanalysis', label:'RDP Analysis (Appendix B)', icon:'🔧', isDefault:false},
   {id:'sessions',    label:'User Sessions',             icon:'👤', isDefault:true},
+  {id:'rginventory', label:'RG Inventory (Appendix A)', icon:'📋', isDefault:false},
+  {id:'rdpanalysis', label:'RDP Analysis (Appendix B)', icon:'🔧', isDefault:false},
 ];
 let rbState = { format:'html', sections:new Set(RB_DEFAULT_SECTIONS), dirty:true };
 
@@ -3646,13 +3646,27 @@ function rbOpen(){
 }
 function rbBuildSecList(){
   const el=$('rb-sec-list'); if(!el) return;
-  el.innerHTML=RB_ALL_SECTIONS.map(s=>`
+  const isLive=D?.displayConfig?.isLiveMode===true;
+  if(isLive){
+    el.innerHTML=
+      `<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan-dim);padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:6px">⚡ Live Mode — Quick Report</div>`+
+      RB_ALL_SECTIONS
+        .filter(s=>!RB_LIVE_HIDDEN_SECS.has(s.id))
+        .map(s=>`
+    <div class="rb-sec-row" onclick="rbToggleSec('${s.id}',!document.getElementById('rbc-${s.id}').checked);document.getElementById('rbc-${s.id}').checked=rbState.sections.has('${s.id}')">
+      <input type="checkbox" id="rbc-${s.id}" ${rbState.sections.has(s.id)?'checked':''}
+        onclick="event.stopPropagation()" onchange="rbToggleSec('${s.id}',this.checked)">
+      <span class="rb-sec-lbl">${s.icon} ${s.label}</span>
+    </div>`).join('');
+  } else {
+    el.innerHTML=RB_ALL_SECTIONS.map(s=>`
     <div class="rb-sec-row ${s.isDefault?'is-default':''}" onclick="rbToggleSec('${s.id}',!document.getElementById('rbc-${s.id}').checked);document.getElementById('rbc-${s.id}').checked=rbState.sections.has('${s.id}')">
       <input type="checkbox" id="rbc-${s.id}" ${rbState.sections.has(s.id)?'checked':''}
         onclick="event.stopPropagation()" onchange="rbToggleSec('${s.id}',this.checked)">
       <span class="rb-sec-lbl">${s.icon} ${s.label}</span>
       ${s.isDefault?'<span class="rb-dflt-badge">DEFAULT</span>':''}
     </div>`).join('');
+  }
 }
 function rbSetFmt(fmt){
   rbState.format=fmt;
