@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>69 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -5613,6 +5613,56 @@ let qrToken    = null;
 let qrUpn      = '';
 let qrDisplayName = '';
 
+// ── Live Debug Panel ──────────────────────────────────────────────
+const LIVE_DEBUG = true; // set false to suppress in-page panel
+let   liveLogStart = 0;
+
+function liveLog(msg, level) {
+  const elapsed = liveLogStart ? '+' + (Date.now() - liveLogStart) + 'ms' : '';
+  const colours = { info:'#7a9bbf', warn:'#f59e0b', error:'#ef4444', success:'#10b981' };
+  const colour  = colours[level||'info'] || colours.info;
+  // Always write to browser console
+  const fn = level==='error' ? console.error : level==='warn' ? console.warn : console.log;
+  fn('[YGIT Live]', msg, elapsed);
+  if(!LIVE_DEBUG) return;
+  const panel = document.getElementById('live-debug-panel');
+  if(!panel) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #1e2d42;font-size:10px;';
+  line.innerHTML = `<span style="color:#3d5270;font-family:monospace;flex-shrink:0">${elapsed||'0ms'}</span><span style="color:${colour};word-break:break-all">${msg}</span>`;
+  const body = document.getElementById('live-debug-body');
+  if(body){ body.appendChild(line); body.scrollTop = body.scrollHeight; }
+}
+
+function liveLogShow() {
+  if(!LIVE_DEBUG) return;
+  liveLogStart = Date.now();
+  let panel = document.getElementById('live-debug-panel');
+  if(panel) { panel.style.display='flex'; document.getElementById('live-debug-body').innerHTML=''; return; }
+  panel = document.createElement('div');
+  panel.id = 'live-debug-panel';
+  panel.style.cssText = 'position:fixed;bottom:16px;right:16px;width:420px;max-height:280px;background:#0d1117;border:1px solid #1e2d42;border-radius:8px;display:flex;flex-direction:column;z-index:9999;box-shadow:0 4px 24px #00000080;font-family:monospace;';
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;padding:7px 12px;border-bottom:1px solid #1e2d42;gap:8px;flex-shrink:0">
+      <span style="font-size:10px;letter-spacing:2px;color:#00d4ff;text-transform:uppercase">⚡ Live Collect Log</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+        <button onclick="navigator.clipboard?.writeText(Array.from(document.getElementById('live-debug-body').querySelectorAll('div')).map(d=>d.textContent).join('\\n'))" style="background:#1c2535;border:1px solid #1e2d42;border-radius:3px;color:#7a9bbf;font-size:9px;cursor:pointer;padding:2px 7px">Copy</button>
+        <button onclick="const b=document.getElementById('live-debug-body');b.style.display=b.style.display==='none'?'':'none'" style="background:#1c2535;border:1px solid #1e2d42;border-radius:3px;color:#7a9bbf;font-size:9px;cursor:pointer;padding:2px 7px">Collapse</button>
+        <button onclick="document.getElementById('live-debug-panel').style.display='none'" style="background:#1c2535;border:1px solid #1e2d42;border-radius:3px;color:#7a9bbf;font-size:9px;cursor:pointer;padding:2px 7px">✕</button>
+      </span>
+    </div>
+    <div id="live-debug-body" style="overflow-y:auto;padding:6px 10px;flex:1"></div>`;
+  document.body.appendChild(panel);
+}
+
+function liveLogDone() {
+  if(!LIVE_DEBUG) return;
+  liveLog('✓ Collect complete — ' + (Date.now()-liveLogStart) + 'ms total', 'success');
+  const body = document.getElementById('live-debug-body');
+  if(body) { const b = document.createElement('div'); b.style.cssText='border-top:1px solid #1e2d42;margin-top:4px;padding-top:4px;font-size:9px;color:#3d5270;text-align:center'; b.textContent='Panel auto-collapses in 10s'; body.appendChild(b); }
+  setTimeout(function(){ const bd=document.getElementById('live-debug-body'); if(bd) bd.style.display='none'; }, 10000);
+}
+
 async function startQuickReport() {
   const btn = document.querySelector('.mode-lite .lp-mode-btn');
   try {
@@ -5722,6 +5772,7 @@ async function qrCollect() {
     const b = document.getElementById('qr-prog-bar');
     if (m) m.textContent = msg;
     if (b) b.style.width = pct + '%';
+    liveLog(msg + (pct!==undefined?' ['+pct+'%]':''), 'info');
   }
 
   function armGet(path) {
@@ -5736,6 +5787,7 @@ async function qrCollect() {
     });
   }
 
+  liveLogShow();
   try {
     // ── Subscription info ───────────────────────────────────────────
     qrProgress('Getting subscription...', 5);
@@ -6125,6 +6177,7 @@ async function qrCollect() {
 
     // ── Hand off to report builder ────────────────────────────────────
     qrProgress('Done!', 100);
+    liveLogDone();
     setTimeout(function() {
       document.getElementById('qr-progress').remove();
       initData(D_live);
@@ -6136,6 +6189,7 @@ async function qrCollect() {
 
   } catch(err) {
     console.error('QR collect error:', err);
+    liveLog('ERROR: ' + (err.message||err), 'error');
     document.getElementById('qr-progress').remove();
     alert('Data collection failed: ' + (err.message || err));
   }
