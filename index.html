@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>v5-63(65)YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════════════════
-   YGIT AVD Intelligence — v5.0
+   YGIT AVD Intelligence — v1.0
    Full GlassPane design system · Left sidebar nav · Industrial dark
    ═══════════════════════════════════════════════════════════════════════ */
 :root {
@@ -4046,7 +4046,7 @@ function rbBuildMarkdown(){
       L.push(`| Status | ${sh.status||'—'} |`);
       L.push(`| VM Size | ${sh.vmSize||'—'} |`);
       L.push(`| Active Sessions | ${sh.activeSessions??0} |`);
-      L.push(`| Location | ${sh.location||'—'} |`);
+      L.push(`| Location | ${sh.vmLocation||sh.location||'—'} |`);
       L.push(`| Allow New Sessions | ${sh.allowNewSessions===false?'Blocked':'Allowed'} |`);
       L.push(`| Host Resource Group | ${sh.resourceGroup||'—'} |`);
       L.push(`| Host Pool | ${sh.hostPoolName||'—'} |`);
@@ -4677,6 +4677,7 @@ function rbBuildHTMLDoc(){
       const diskTypeC = diskType.includes('Premium')?'#059669':diskType.includes('Standard_SSD')?'#2563eb':'#64748b';
       const tags = Object.entries(sh.tags||{});
       const net = sh.networkDetails || {};
+      const location = sh.vmLocation||sh.location||'—';
 
       shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden">
         <!-- Card header -->
@@ -5223,7 +5224,7 @@ function rbBuildHTMLDoc(){
   if(sec('fslogix')) tocEntries.push({label:'FSLogix Profile Containers',id:'sec-fslogix'});
   if(sec('cost')&&s.costAvailable) tocEntries.push({label:'Cost & FinOps',id:'sec-cost'});
   if(sec('intelligence')) tocEntries.push({label:'AVD Diagnostics & Insights Coverage',id:'sec-intelligence'});
-  if(allRecsCount>0) tocEntries.push({label:'Configuration Findings',id:'sec-recommendations'});
+  if(allRecsCount>0 && !isLive) tocEntries.push({label:'Configuration Findings',id:'sec-recommendations'});
   if(rgsData.length&&sec('rginventory')) tocEntries.push({label:'Appendix A — Resource Group Inventory',id:'sec-rginventory'});
   if(sec('rdpanalysis')&&hps.some(hp=>Object.keys(hp.rdpPropertiesParsed||{}).length)) tocEntries.push({label:'Appendix B — RDP Properties Analysis',id:'sec-rdpanalysis'});
 
