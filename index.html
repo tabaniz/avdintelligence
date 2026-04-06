@@ -3414,13 +3414,14 @@ function renderFSLogix(){
     storageAccounts.forEach(sa=>{
       const shares=arr(sa.shares);
       html+=`<div style="margin-bottom:12px;padding:10px;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-family:var(--font-mono);font-size:11px;color:var(--cyan)">${esc(sa.storageAccount)}</span>
           <span class="pill p-gray" style="font-size:8px">${esc(sa.sku||'—')}</span>
           <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">${esc(sa.resourceGroup||'—')} · ${esc(sa.location||'—')}</span>
         </div>
+        ${sa.storageAccountUrl?`<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:8px">🔗 <span style="color:var(--cyan-dim)">${esc(sa.storageAccountUrl)}</span> ${copyBtn(sa.storageAccountUrl)}</div>`:''}
         <div class="data-table-wrap"><table class="data-table">
-          <thead><tr><th>Share Name</th><th>Quota (GiB)</th><th>Used (GiB)</th><th>Remaining (GiB)</th><th>Utilisation</th><th>Tier</th></tr></thead>
+          <thead><tr><th>Share Name</th><th>Quota (GiB)</th><th>Used (GiB)</th><th>Remaining (GiB)</th><th>Utilisation</th><th>Tier</th><th>Share URL</th></tr></thead>
           <tbody>${shares.map(sh=>{
             const hasQuota=sh.quotaGiB>0;
             const pct=hasQuota?Math.round((sh.usedGiB/sh.quotaGiB)*100):null;
@@ -3433,6 +3434,7 @@ function renderFSLogix(){
               <td>${remaining}</td>
               <td>${pct!=null?`<div class="score-bar-track" style="width:80px;display:inline-block;vertical-align:middle"><div class="score-bar-fill" style="width:${pct}%;background:${col}"></div></div> <span style="font-size:9px;color:${col}">${pct}%</span>`:'<span style="font-size:9px;color:var(--text-muted)">No quota set</span>'}</td>
               <td style="font-size:9px;color:var(--text-muted)">${esc(sh.tier||'—')}</td>
+              <td style="font-size:9px">${sh.shareUrl?`<span style="color:var(--cyan-dim)">${esc(sh.shareUrl)}</span> ${copyBtn(sh.shareUrl)}`:'—'}</td>
             </tr>`;
           }).join('')}</tbody>
         </table></div>
@@ -3659,8 +3661,19 @@ function rbSetFmt(fmt){
   rbMarkDirty();
 }
 function rbToggleSec(id,checked){ if(checked) rbState.sections.add(id); else rbState.sections.delete(id); rbUpdateSummary(); rbMarkDirty(); }
-const RB_LIVE_HIDDEN_SECS = new Set(['fslogix','cost','rdpanalysis','sessions']);
-const RB_LIVE_TICKED_SECS = new Set(['overview','workspaces','hostpools','appgroups','desktops','sessionhosts']);
+const LIVE_CONFIG = {
+  hiddenSections:     ['fslogix','cost','rdpanalysis','networking','intelligence'],
+  tickedSections:     ['overview','hostpools','sessionhosts','workspaces','appgroups','rbac','rginventory'],
+  hiddenUIFields:     ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes'],
+  hiddenDocRows:      ['rb-doc-row-env','rb-doc-row-version'],
+  skipPatchStatus:    true,
+  skipFSLogix:        true,
+  skipConfigFindings: true,
+  execStyle:          '0',
+};
+
+const RB_LIVE_HIDDEN_SECS = new Set(LIVE_CONFIG.hiddenSections);
+const RB_LIVE_TICKED_SECS = new Set(LIVE_CONFIG.tickedSections);
 function rbSetAllSec(all){
   const isLive=D?.displayConfig?.isLiveMode===true;
   RB_ALL_SECTIONS.forEach(s=>{
@@ -4069,6 +4082,25 @@ function rbBuildMarkdown(){
     L.push(`- **Coverage:** ${fc.coveragePct??'—'}% (${fc.hostsWithFSLogix||0} of ${fc.totalHosts||0} hosts)`);
     if(arr(fc.hostsWithout).length) L.push(`- **Without FSLogix:** ${arr(fc.hostsWithout).join(', ')}`);
     L.push(`\n> ${fc.fslogixCoverageNote||'Detection based on VM extension inventory.'}`);
+    const sas=arr(fc.storageAccounts);
+    if(sas.length){
+      L.push('\n### Profile Storage Accounts\n');
+      sas.forEach(sa=>{
+        L.push(`#### ${sa.storageAccount}`);
+        L.push(`- **Resource Group:** ${sa.resourceGroup||'—'} · **Location:** ${sa.location||'—'} · **SKU:** ${sa.sku||'—'}`);
+        if(sa.storageAccountUrl) L.push(`- **Storage URL:** ${sa.storageAccountUrl}`);
+        const shares=arr(sa.shares);
+        if(shares.length){
+          L.push('\n| Share Name | Quota (GiB) | Used (GiB) | Tier | Share URL |');
+          L.push('|------------|-------------|------------|------|-----------|');
+          shares.forEach(sh=>{
+            const pct=sh.quotaGiB>0?` (${Math.round((sh.usedGiB/sh.quotaGiB)*100)}%)`:'';
+            L.push(`| ${sh.name||'—'} | ${sh.quotaGiB||'No quota'} | ${sh.usedGiB??'—'}${pct} | ${sh.tier||'—'} | ${sh.shareUrl||'—'} |`);
+          });
+        }
+        L.push('');
+      });
+    }
   }
   if(sec('cost')&&s.costAvailable){
     L.push('\n---\n## Cost & FinOps\n');
@@ -4635,7 +4667,7 @@ function rbBuildHTMLDoc(){
       shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden">
         <!-- Card header -->
         <div style="background:#0d1117;padding:10px 16px;display:flex;align-items:center;gap:12px">
-          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(displayName)}</span>
+          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(sh.vmNameFull||sh.vmName||sh.name||'—')}</span>
           <span style="font-size:11px;font-weight:600;color:${statusC}">${esc(sh.status||'—')}</span>
           ${sh.drainMode?'<span style="font-size:9px;background:#92400e;color:#fef3c7;padding:2px 6px;border-radius:3px;margin-left:4px">DRAIN MODE</span>':''}
           ${sh.excludeFromScaling?'<span style="font-size:9px;background:#854d0e;color:#fef9c3;padding:2px 6px;border-radius:3px;margin-left:4px">EXCL. SCALING</span>':''}
@@ -4884,6 +4916,7 @@ function rbBuildHTMLDoc(){
   if(sec('fslogix')){
     const fc=D?.fslogixCoverage||{};
     const covPct=fc.coveragePct??0;
+    const sas=arr(fc.storageAccounts);
     let fslHtml = sectionHeader(secNum++, '📦', 'FSLogix Profile Containers', undefined, 'sec-fslogix');
     fslHtml += kpiRow(
       kpiBox('Coverage', covPct+'%', `${fc.hostsWithFSLogix||0} of ${fc.totalHosts||shs.length} hosts`, covPct>=80?'green':covPct>=50?'amber':'red'),
@@ -4895,6 +4928,36 @@ function rbBuildHTMLDoc(){
       fslHtml += `<div style="background:#fef9c3;border-left:4px solid #ca8a04;border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:10px;font-size:11px"><strong>Hosts without FSLogix:</strong> ${arr(fc.hostsWithout).map(h=>`<code style="background:#fef3c7;padding:1px 5px;border-radius:2px">${esc(h)}</code>`).join(' ')}</div>`;
     }
     if(fc.fslogixCoverageNote) fslHtml += `<p style="font-size:11px;color:#64748b;font-style:italic">${esc(fc.fslogixCoverageNote)}</p>`;
+    if(sas.length){
+      fslHtml += `<p style="font-weight:700;font-size:12px;margin:14px 0 6px;color:#0d1117">Profile Storage Accounts (${sas.length})</p>`;
+      sas.forEach(sa=>{
+        const shares=arr(sa.shares);
+        fslHtml += `<div style="margin-bottom:12px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-weight:700;font-size:12px">${esc(sa.storageAccount)}</span>
+            <span style="font-size:10px;color:#64748b">${esc(sa.sku||'—')}</span>
+            <span style="font-size:10px;color:#94a3b8;margin-left:auto">${esc(sa.resourceGroup||'—')} · ${esc(sa.location||'—')}</span>
+          </div>
+          ${sa.storageAccountUrl?`<p style="font-size:10px;margin-bottom:8px"><b>Storage URL:</b> <code style="font-size:9px;color:#0055aa">${esc(sa.storageAccountUrl)}</code></p>`:''}
+          ${shares.length?docTable(
+            ['Share Name','Quota (GiB)','Used (GiB)','Utilisation','Tier','Share URL'],
+            shares.map(sh=>{
+              const hasQ=sh.quotaGiB>0;
+              const pct=hasQ?Math.round((sh.usedGiB/sh.quotaGiB)*100):null;
+              const col=pct==null?'#64748b':pct>85?'#dc2626':pct>65?'#d97706':'#059669';
+              return[
+                `<code style="font-size:10px">${esc(sh.name||'—')}</code>`,
+                hasQ?sh.quotaGiB:'No quota',
+                sh.usedGiB??'—',
+                pct!=null?`<span style="color:${col}">${pct}%</span>`:'—',
+                esc(sh.tier||'—'),
+                sh.shareUrl?`<code style="font-size:9px;color:#0055aa">${esc(sh.shareUrl)}</code>`:'—'
+              ];
+            })
+          ):'<p style="font-size:11px;color:#94a3b8">No shares found.</p>'}
+        </div>`;
+      });
+    }
     sections.push(fslHtml);
   }
 
@@ -5259,7 +5322,7 @@ hr{border:none;border-top:1px solid #e2e8f0;margin:24px 0;}
   ${sections.join('\n')}
 
   <!-- Live mode note -->
-  ${D?.displayConfig?.isLiveMode ? '<p style="font-size:10px;color:#64748b;font-style:italic;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:24px;text-align:center">This is a basic AVD environment document generated via Connect Live. For the full assessment including KQL analytics, FSLogix, networking and cost intelligence, run the PS1 collector.</p>' : ''}
+  ${D?.displayConfig?.isLiveMode ? `<p style="font-size:10px;color:#64748b;font-style:italic;border-top:1px solid #e2e8f0;padding-top:10px;margin-top:24px;text-align:center">This document reflects a point-in-time snapshot of the Azure Virtual Desktop environment collected via Connect Live on ${D.generatedAt ? new Date(D.generatedAt).toLocaleDateString('en-AU') : '—'}. Configuration findings, FSLogix analysis, cost intelligence, KQL analytics and networking deep-dive are available via the full PS1 assessment.</p>` : ''}
 
   <!-- Footer -->
   <div class="doc-footer">
@@ -5414,7 +5477,7 @@ async function rbBuildDOCX(sub){
       // Cost
       if(secFn('cost')&&s.costAvailable){ const hpCosts=hps.filter(hp=>hp.currentMonthCost!=null).sort((a,b)=>b.currentMonthCost-a.currentMonthCost); const p3=costProjection(s.currentMonthCost,D?.generatedAt); children.push(pageBreak()); children.push(sectionH(secNum++,'Cost & FinOps','Month-to-Date')); children.push(kpiTable([{label:'Prev Month',value:s.previousMonthCost!=null?`${cur} ${s.previousMonthCost.toFixed(0)}`:'—',colour:'gray'},{label:'MTD',value:`${cur} ${s.currentMonthCost?.toFixed(0)||'—'}`,colour:'cyan'},{label:'Projected EOM',value:p3?`${cur} ${p3.toFixed(0)}`:'—',colour:'amber'},{label:'Wasted',value:s.wastedSpendEstimate?`${cur} ${s.wastedSpendEstimate.toFixed(0)}`:'—',colour:s.wastedSpendEstimate>0?'amber':'green'}])); if(s.previousMonthCost!=null&&p3!=null){const delta=p3-s.previousMonthCost,pct=Math.round((delta/s.previousMonthCost)*100);children.push(para([new TextRun({text:(delta>0?'↑ ':'↓ '),font:'Calibri',size:sz(14),bold:true,color:delta>0?C.RED:C.GREEN}),run(`${delta>0?'+':''}${cur} ${Math.abs(delta).toFixed(2)} (${delta>0?'+':''}${pct}%) vs last month`,{bold:true,color:delta>0?C.RED:C.GREEN})],{after:100}));} if(hpCosts.length){children.push(subH('Cost by Host Pool'));children.push(dataTable(['Host Pool','Cost MTD','% of Total'],hpCosts.map(hp=>[hp.name,`${cur} ${hp.currentMonthCost.toFixed(2)}`,Math.round((hp.currentMonthCost/(s.currentMonthCost||1))*100)+'%'])));} }
       // FSLogix
-      if(secFn('fslogix')){ const fc=D?.fslogixCoverage||{},covPct=fc.coveragePct??0; children.push(pageBreak()); children.push(sectionH(secNum++,'FSLogix Profile Containers')); children.push(kpiTable([{label:'Coverage',value:covPct+'%',sub:`${fc.hostsWithFSLogix||0}/${fc.totalHosts||shs.length}`,colour:covPct>=80?'green':covPct>=50?'amber':'red'},{label:'With',value:fc.hostsWithFSLogix||0,colour:'green'},{label:'Without',value:arr(fc.hostsWithout).length||0,colour:arr(fc.hostsWithout).length>0?'amber':'green'},{label:'Slow Mounts',value:arr(D?.metrics?.fslogixSlowMounts).length||0,colour:arr(D?.metrics?.fslogixSlowMounts).length>0?'amber':'green'}])); if(arr(fc.hostsWithout).length) children.push(para([runMono('Hosts without FSLogix: ',{bold:true,color:C.AMBER}),run(arr(fc.hostsWithout).join(', '),{color:C.MUTED})],{after:80})); if(fc.fslogixCoverageNote) children.push(para([run(fc.fslogixCoverageNote,{italics:true,color:C.MUTED,size:sz(10)})],{after:80})); }
+      if(secFn('fslogix')){ const fc=D?.fslogixCoverage||{},covPct=fc.coveragePct??0,sas=arr(fc.storageAccounts); children.push(pageBreak()); children.push(sectionH(secNum++,'FSLogix Profile Containers')); children.push(kpiTable([{label:'Coverage',value:covPct+'%',sub:`${fc.hostsWithFSLogix||0}/${fc.totalHosts||shs.length}`,colour:covPct>=80?'green':covPct>=50?'amber':'red'},{label:'With',value:fc.hostsWithFSLogix||0,colour:'green'},{label:'Without',value:arr(fc.hostsWithout).length||0,colour:arr(fc.hostsWithout).length>0?'amber':'green'},{label:'Slow Mounts',value:arr(D?.metrics?.fslogixSlowMounts).length||0,colour:arr(D?.metrics?.fslogixSlowMounts).length>0?'amber':'green'}])); if(arr(fc.hostsWithout).length) children.push(para([runMono('Hosts without FSLogix: ',{bold:true,color:C.AMBER}),run(arr(fc.hostsWithout).join(', '),{color:C.MUTED})],{after:80})); if(fc.fslogixCoverageNote) children.push(para([run(fc.fslogixCoverageNote,{italics:true,color:C.MUTED,size:sz(10)})],{after:80})); if(sas.length){ children.push(para([runMono('PROFILE STORAGE ACCOUNTS',{bold:true,letterSpacing:40,color:C.CYAN})],{before:sz(8),after:sz(4)})); sas.forEach(sa=>{ children.push(para([run(sa.storageAccount,{bold:true,size:sz(11)}),run('  '+sa.sku+'  '+sa.resourceGroup+' · '+sa.location,{size:sz(9),color:C.MUTED})],{after:sz(2)})); if(sa.storageAccountUrl) children.push(para([runMono('Storage URL: ',{bold:true,size:sz(9)}),runMono(sa.storageAccountUrl,{color:C.CYAN,size:sz(9)})],{after:sz(2)})); const shares=arr(sa.shares); if(shares.length) children.push(dataTable(['Share Name','Quota (GiB)','Used (GiB)','Utilisation','Tier','Share URL'],shares.map(sh=>{ const pct=sh.quotaGiB>0?Math.round((sh.usedGiB/sh.quotaGiB)*100)+'%':'—'; return[sh.name||'—',sh.quotaGiB||'No quota',sh.usedGiB??'—',pct,sh.tier||'—',sh.shareUrl||'—']; }))); }); } }
       // RG Inventory
       const rgsData2=arr(D?.resourceGroups).filter(rg=>rg!=null); if(rgsData2.length&&secFn('rginventory')){ children.push(pageBreak()); children.push(sectionH(secNum++,'Appendix A — Resource Group Inventory',`${rgsData2.reduce((a,rg)=>a+(rg.resourceCount||arr(rg.resources).length),0)} resources`)); rgsData2.forEach(rg=>{ const res=arr(rg.resources); children.push(subH(`${rg.name}  (${rg.resourceCount||res.length} resources)`)); children.push(dataTable(['Resource','Type','Location'],res.map(r=>[r.name,r.shortType||'—',r.location||'—']))); }); }
       // Footer
@@ -5752,6 +5815,7 @@ async function qrCollect() {
           lastHeartbeat:     sh.properties.lastHeartBeat || '',
           assignedUser:      sh.properties.assignedUser || '',
           vmName:            shName.split('.')[0],
+          vmNameFull:        shName,
           osType:            'Windows',
           powerState:        'Running',
           activeSessions:    sh.properties.sessions || 0,
@@ -5795,10 +5859,18 @@ async function qrCollect() {
     const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01');
     const vmMap = {};
     (vmResp.value || []).forEach(function(vm) {
+      const osDisk = vm.properties.storageProfile.osDisk || {};
       vmMap[vm.name.toLowerCase()] = {
-        vmSize:    vm.properties.hardwareProfile.vmSize || '',
-        osType:    vm.properties.storageProfile.osDisk.osType || 'Windows',
-        location:  vm.location || ''
+        vmSize:       vm.properties.hardwareProfile.vmSize || '',
+        osType:       osDisk.osType || 'Windows',
+        location:     vm.location || '',
+        osDiskName:   osDisk.name || '',
+        osDiskSizeGB: osDisk.diskSizeGB || 0,
+        osDiskType:   (osDisk.managedDisk||{}).storageAccountType || '',
+        osDiskCaching:osDisk.caching || '',
+        osDiskId:     (osDisk.managedDisk||{}).id || '',
+        tags:         vm.tags || {},
+        nicIds:       (vm.properties.networkProfile.networkInterfaces||[]).map(function(n){ return n.id; })
       };
     });
 
@@ -5806,9 +5878,16 @@ async function qrCollect() {
     allSessionHosts.forEach(function(sh) {
       const vmKey = sh.vmName.toLowerCase();
       if (vmMap[vmKey]) {
-        sh.vmSize     = vmMap[vmKey].vmSize;
-        sh.osType     = vmMap[vmKey].osType;
-        sh.vmLocation = vmMap[vmKey].location;
+        sh.vmSize        = vmMap[vmKey].vmSize;
+        sh.osType        = vmMap[vmKey].osType;
+        sh.vmLocation    = vmMap[vmKey].location;
+        sh.osDiskName    = vmMap[vmKey].osDiskName;
+        sh.osDiskSizeGB  = vmMap[vmKey].osDiskSizeGB;
+        sh.osDiskType    = vmMap[vmKey].osDiskType;
+        sh.osDiskCaching = vmMap[vmKey].osDiskCaching;
+        sh.osDiskId      = vmMap[vmKey].osDiskId;
+        sh.tags          = vmMap[vmKey].tags;
+        sh.nicIds        = vmMap[vmKey].nicIds;
       }
     });
 
