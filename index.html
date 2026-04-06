@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>67 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -4012,6 +4012,7 @@ function rbBuildMarkdown(){
       L.push(`- **Resource Group:** ${ag.resourceGroup||'—'} · **Location:** ${ag.location||'—'}`);
       L.push(`- **Assignees:** ${ag.totalAssignees||0} (${arr(ag.assignedGroups).length} group${arr(ag.assignedGroups).length!==1?'s':''}, ${arr(ag.assignedUsers).length} user${arr(ag.assignedUsers).length!==1?'s':''})`);
       L.push(`- **Diagnostics:** ${ag.diagnosticsEnabled?'Enabled':'Not Configured'}`);
+      if(Object.keys(ag.tags||{}).length) L.push(`- **Tags:** ${Object.entries(ag.tags).map(([k,v])=>`\`${k}: ${v}\``).join(', ')}`);
       const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
       const stdRole='Desktop Virtualization User';
       if(allA.length){ L.push('\n**Assignments:**'); allA.forEach(a=>{ const nonStd=a.role&&a.role!==stdRole?` ⚠ ${a.role}`:''; L.push(`- ${a.displayName||a.objectId||'—'} [${a.objectType}]${nonStd}`); }); }
@@ -4606,6 +4607,7 @@ function rbBuildHTMLDoc(){
           <span><b>Location:</b> ${esc(ag.location||'—')}</span>
           ${ag.friendlyName&&ag.friendlyName!==ag.name?`<span><b>Friendly Name:</b> ${esc(ag.friendlyName)}</span>`:''}
           ${ag.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ag.description)}</span>`:''}
+          ${Object.keys(ag.tags||{}).length?`<span style="grid-column:1/-1"><b>Tags:</b> ${Object.entries(ag.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</span>`:''}
         </div>
         ${allA.length?docTable(['Principal','Type'],allA.map(a=>{const nonStd=a.role&&a.role!==stdRole?` <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px">${esc(a.role)}</span>`:'';return[esc(a.displayName||a.signInName||a.objectId||'—')+nonStd,pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray')];})):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
         ${ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length?'<p style="font-size:10px;color:#64748b;margin-top:6px">Apps: '+arr(ag.remoteApps).map(a=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:10px">${esc(a.friendlyName||a.name||'—')}</code>`).join(' ')+'</p>':''}
@@ -5486,6 +5488,7 @@ async function rbBuildDOCX(sub){
       // Session Hosts
       if(secFn('workspaces')&&arr(D?.avdWorkspaces).length){ const wssD=arr(D?.avdWorkspaces); children.push(pageBreak()); children.push(sectionH(secNum++,'Workspaces',`${wssD.length} workspace${wssD.length!==1?'s':''}`)); wssD.forEach(ws=>{ const wsAgsD=ags.filter(ag=>ag.workspaceId===ws.id||ag.workspaceName===ws.name); children.push(subH((ws.friendlyName&&ws.friendlyName!==ws.name?ws.friendlyName+' ('+ws.name+')':ws.name),C.CYAN)); children.push(kvTable([['Resource Group',ws.resourceGroup||'—'],['Location',ws.location||'—'],['Friendly Name',ws.friendlyName||'—'],['Diagnostics',ws.diagnosticsEnabled?'Enabled':'Not Configured'],['App Groups',wsAgsD.map(ag=>ag.name).join(', ')||'None'],...(ws.description?[['Description',ws.description]]:[]),...(Object.keys(ws.tags||{}).length?[['Tags',Object.entries(ws.tags).map(([k,v])=>k+': '+v).join(', ')]]:[]),['Resource ID',ws.id||'—']])); }); }
       const deskAgsD=ags.filter(g=>g.applicationGroupType==='Desktop');
+      if(secFn('appgroups')&&ags.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Application Groups',`${ags.length} group${ags.length!==1?'s':''}`)); ags.forEach(ag=>{ const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)]; children.push(subH(ag.name,C.CYAN)); children.push(kvTable([['Type',ag.applicationGroupType||'—'],['Host Pool',ag.hostPoolName||'—'],['Workspace',ag.workspaceFriendlyName||ag.workspaceName||'—'],['Resource Group',ag.resourceGroup||'—'],['Location',ag.location||'—'],['Diagnostics',ag.diagnosticsEnabled?'Enabled':'Not Configured'],['Assignees',allA.length+' ('+arr(ag.assignedGroups).length+' groups, '+arr(ag.assignedUsers).length+' users)'],...(ag.description?[['Description',ag.description]]:[]),...(Object.keys(ag.tags||{}).length?[['Tags',Object.entries(ag.tags).map(([k,v])=>k+': '+v).join(', ')]]:[]),['Resource ID',ag.id||'—']])); }); }
       if(secFn('desktops')&&deskAgsD.length){ children.push(pageBreak()); children.push(sectionH(secNum++,'Session Desktops',`${deskAgsD.length} desktop${deskAgsD.length!==1?'s':''}`)); children.push(dataTable(['Name','Friendly Name','Workspace','Host Pool','Show in Portal','Assignees'],deskAgsD.map(ag=>[esc(ag.name||'—'),esc(ag.friendlyName&&ag.friendlyName!==ag.name?ag.friendlyName:'—'),esc(ag.workspaceFriendlyName||ag.workspaceName||'—'),esc(ag.hostPoolName||'—'),ag.showInPortal!==false?'Visible':'Hidden',[...arr(ag.assignedUsers),...arr(ag.assignedGroups)].length+' assigned']))); }
       if(secFn('sessionhosts')&&shs.length){ const avail=shs.filter(s=>s.status==='Available').length,unavail=shs.filter(s=>s.status==='Unavailable').length,drain=shs.filter(s=>s.drainMode).length; children.push(pageBreak()); children.push(sectionH(secNum++,'Session Hosts',`${shs.length} host${shs.length!==1?'s':''}`)); children.push(kpiTable([{label:'Available',value:avail,sub:`of ${shs.length}`,colour:avail===shs.length?'green':'amber'},{label:'Unavailable',value:unavail,colour:unavail>0?'red':'green'},{label:'Drain Mode',value:drain,colour:drain>0?'amber':'green'},{label:'FSLogix',value:(s.hostsWithFSLogixDetected||0)+'/'+shs.length,colour:s.hostsWithFSLogixDetected===shs.length?'green':'amber'}])); children.push(dataTable(['Session Host','Host Pool','Status','VM Size','Sessions','Patch','FSLogix'],shs.map(sh=>{const ps=patchStatus(sh.lastUpdate);return[sh.vmName||sh.name||'—',sh.hostPoolName||'—',sh.status||'—',sh.vmSize||'—',(sh.activeSessions||0)+' active',ps.label,sh.fslogixDetected?'✓':'—'];}))); }
       // Scaling Plans
