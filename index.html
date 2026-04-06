@@ -3691,14 +3691,12 @@ function rbMarkDirty(){ rbState.dirty=true; rbSetPreviewBtn(true); rbUpdateSumma
 
 function rbApplyLiveModeUI(){
   const isLive = D?.displayConfig?.isLiveMode===true;
-  const liveHide = ['rb-field-exec-style','rb-field-findings-sentence','rb-field-closing-para','rb-field-kf','rb-field-fi','rb-field-scope','rb-field-notes','rb-field-env','rb-field-date'];
-  liveHide.forEach(function(id){
+  LIVE_CONFIG.hiddenUIFields.forEach(function(id){
     const el = document.getElementById(id);
     if(el) el.style.display = isLive ? 'none' : '';
   });
   // Hide specific section rows in the section list
-  const liveHideSecs = ['fslogix','cost','rdpanalysis','sessions'];
-  liveHideSecs.forEach(function(sid){
+  LIVE_CONFIG.hiddenSections.forEach(function(sid){
     const row = document.getElementById('rbc-'+sid)?.closest('.rb-sec-row');
     if(row) row.style.display = isLive ? 'none' : '';
   });
