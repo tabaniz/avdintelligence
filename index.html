@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> Removed instanceView | YGIT AVD Intelligence</title>
+<title> token | YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -5970,9 +5970,9 @@ async function qrCollect() {
       qrProgress('Collecting session hosts... (' + (i+1) + '/' + rawHPs.length + ')', 45 + Math.round((i+1)/rawHPs.length * 25));
     }
 
-	  // ── VMs ──────────────────────────────────────────────────────────
+	 // ── VMs ──────────────────────────────────────────────────────────
     qrProgress('Collecting VMs...', 72);
-    // Removed $expand to prevent 400 error
+    // Removed $expand to prevent API Error 400
     const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01');
     const rawVMs = vmResp.value || [];
 
@@ -5985,9 +5985,14 @@ async function qrCollect() {
             subscriptions: [subId],
             query: "Resources | where type =~ 'microsoft.compute/virtualmachines' | project name = tostring(name), powerState = tostring(properties.extended.instanceView.powerState.displayStatus)"
         };
+        
+        // Using qrToken (or the token variable available in your function scope)
         const argRes = await fetch(argUri, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${qrToken}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify(argQuery)
         });
         const argData = await argRes.json();
@@ -6005,7 +6010,7 @@ async function qrCollect() {
       const osDisk = vm.properties.storageProfile.osDisk || {};
       const vmNameLower = vm.name.toLowerCase();
       
-      // Use the PowerState from our Resource Graph map
+      // Map the label from our Resource Graph results
       const psLabel = powerStateMap[vmNameLower] || 'Unknown';
 
       vmMap[vmNameLower] = {
