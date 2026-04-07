@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> instanceView | YGIT AVD Intelligence</title>
+<title> Removed instanceView | YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -5970,7 +5970,78 @@ async function qrCollect() {
       qrProgress('Collecting session hosts... (' + (i+1) + '/' + rawHPs.length + ')', 45 + Math.round((i+1)/rawHPs.length * 25));
     }
 
-    // ── VMs ──────────────────────────────────────────────────────────
+	  // ── VMs ──────────────────────────────────────────────────────────
+    qrProgress('Collecting VMs...', 72);
+    // Removed $expand to prevent 400 error
+    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01');
+    const rawVMs = vmResp.value || [];
+
+    // Bulk fetch Power States via Resource Graph
+    qrProgress('Syncing Power States...', 73);
+    const powerStateMap = {};
+    try {
+        const argUri = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01";
+        const argQuery = {
+            subscriptions: [subId],
+            query: "Resources | where type =~ 'microsoft.compute/virtualmachines' | project name = tostring(name), powerState = tostring(properties.extended.instanceView.powerState.displayStatus)"
+        };
+        const argRes = await fetch(argUri, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(argQuery)
+        });
+        const argData = await argRes.json();
+        if (argData && argData.data) {
+            argData.data.forEach(row => {
+                if(row.name) powerStateMap[row.name.toLowerCase()] = row.powerState;
+            });
+        }
+    } catch (e) {
+        liveLog("Warning: Power state sync failed: " + e.message, "warn");
+    }
+
+    const vmMap = {};
+    rawVMs.forEach(function(vm) {
+      const osDisk = vm.properties.storageProfile.osDisk || {};
+      const vmNameLower = vm.name.toLowerCase();
+      
+      // Use the PowerState from our Resource Graph map
+      const psLabel = powerStateMap[vmNameLower] || 'Unknown';
+
+      vmMap[vmNameLower] = {
+        vmSize:       vm.properties.hardwareProfile.vmSize || '',
+        osType:       osDisk.osType || 'Windows',
+        location:     vm.location || '',
+        powerState:   psLabel,
+        osDiskName:   osDisk.name || '',
+        osDiskSizeGB: osDisk.diskSizeGB || 0,
+        osDiskType:   (osDisk.managedDisk||{}).storageAccountType || '',
+        osDiskCaching:osDisk.caching || '',
+        osDiskId:     (osDisk.managedDisk||{}).id || '',
+        tags:         vm.tags || {},
+        nicIds:       (vm.properties.networkProfile.networkInterfaces||[]).map(function(n){ return n.id; })
+      };
+    });
+
+    // Enrich session hosts with VM data
+    allSessionHosts.forEach(function(sh) {
+      const vmKey = sh.vmName.toLowerCase();
+      if (vmMap[vmKey]) {
+        sh.vmSize        = vmMap[vmKey].vmSize;
+        sh.osType        = vmMap[vmKey].osType;
+        sh.vmLocation    = vmMap[vmKey].location;
+        sh.powerState    = vmMap[vmKey].powerState || 'Unknown';
+        sh.osDiskName    = vmMap[vmKey].osDiskName;
+        sh.osDiskSizeGB  = vmMap[vmKey].osDiskSizeGB;
+        sh.osDiskType    = vmMap[vmKey].osDiskType;
+        sh.osDiskCaching = vmMap[vmKey].osDiskCaching;
+        sh.osDiskId      = vmMap[vmKey].osDiskId;
+        sh.tags          = vmMap[vmKey].tags;
+        sh.nicIds        = vmMap[vmKey].nicIds;
+      }
+    });
+	  
+    /*/ ── VMs ──────────────────────────────────────────────────────────
     qrProgress('Collecting VMs...', 72);
     const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01'); //$expand=instanceView
     const vmMap = {};
@@ -6010,7 +6081,7 @@ async function qrCollect() {
         sh.tags          = vmMap[vmKey].tags;
         sh.nicIds        = vmMap[vmKey].nicIds;
       }
-    });
+    }); */
 
     // ── NIC enrichment — batch all NICs in parallel ────────────────
     const allNicIds = [];
