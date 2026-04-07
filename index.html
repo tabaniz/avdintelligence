@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> 71 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -6040,7 +6040,94 @@ async function qrCollect() {
       });
     } catch(e) { console.warn('Scaling plans unavailable:', e.message); }
 
-    // ── RG Inventory ───────────────────────────────────────────────────
+    // ── NAT Gateways + build D.networking ────────────────────────────
+    qrProgress('Collecting network topology...', 78);
+    let liveNetworking = null;
+    try {
+      const natResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Network/natGateways?api-version=2023-05-01');
+      const rawNats = natResp.value || [];
+      liveLog('NAT gateways found: ' + rawNats.length, rawNats.length ? 'success' : 'info');
+
+      // Derive vNet/subnet structure from enriched session host NIC data
+      const vnetMap = {};
+      allSessionHosts.forEach(function(sh){
+        if(!sh.virtualNetwork) return;
+        const vnetKey = sh.virtualNetwork.toLowerCase();
+        if(!vnetMap[vnetKey]){
+          vnetMap[vnetKey] = {
+            name:         sh.virtualNetwork,
+            location:     sh.vmLocation || '',
+            addressSpace: [],
+            subnets:      {},
+            peerings:     []
+          };
+        }
+        const subKey = (sh.subnet||'unknown').toLowerCase();
+        if(!vnetMap[vnetKey].subnets[subKey]){
+          vnetMap[vnetKey].subnets[subKey] = {
+            name:               sh.subnet || 'unknown',
+            addressPrefix:      '',
+            associatedHostPool: sh.hostPoolName || '',
+            sessionHostCount:   0,
+            sessionHostNames:   [],
+            natGatewayName:     '',
+            nsgName:            ''
+          };
+        }
+        vnetMap[vnetKey].subnets[subKey].sessionHostCount++;
+        vnetMap[vnetKey].subnets[subKey].sessionHostNames.push(sh.vmName||sh.name||'');
+      });
+
+      // Build NAT gateway objects and cross-reference to subnets
+      const natGateways = rawNats.map(function(nat){
+        const natProps = nat.properties || {};
+        const publicIPs = (natProps.publicIpAddresses||[]).map(function(pip){
+          return { name: pip.id.split('/').pop(), ipAddress: '', id: pip.id };
+        });
+        // Find which subnets reference this NAT gateway
+        const assocSubnets = (natProps.subnets||[]).map(function(s){ return s.id.split('/').pop(); });
+        // Mark subnets in vnetMap
+        assocSubnets.forEach(function(sname){
+          Object.values(vnetMap).forEach(function(vnet){
+            if(vnet.subnets[sname.toLowerCase()]){
+              vnet.subnets[sname.toLowerCase()].natGatewayName = nat.name;
+            }
+          });
+        });
+        return {
+          name:             nat.name,
+          id:               nat.id,
+          location:         nat.location || '',
+          publicIPAddresses:publicIPs,
+          subnets:          assocSubnets
+        };
+      });
+
+      // Convert vnetMap to array format expected by renderer
+      const virtualNetworks = Object.values(vnetMap).map(function(vnet){
+        return {
+          name:         vnet.name,
+          location:     vnet.location,
+          addressSpace: vnet.addressSpace,
+          subnets:      Object.values(vnet.subnets),
+          peerings:     vnet.peerings
+        };
+      });
+
+      liveNetworking = {
+        virtualNetworks:      virtualNetworks,
+        natGateways:          natGateways,
+        networkSecurityGroups:[],
+        privateEndpoints:     {},
+        bastionHosts:         [],
+        topologyNotes:        virtualNetworks.length ? ['Topology derived from session host NIC data via Connect Live.'] : []
+      };
+      liveLog('Networking built: ' + virtualNetworks.length + ' vNet(s), ' + natGateways.length + ' NAT GW(s)', 'success');
+    } catch(e) {
+      liveLog('Networking collection failed: ' + e.message + ' — networking section will be empty', 'warn');
+    }
+
+    // ── Resource Groups ────────────────────────────────────────────────
     qrProgress('Collecting resource groups...', 82);
     const rawRGs = [];
     try {
@@ -6194,7 +6281,7 @@ async function qrCollect() {
       }),
       scalingPlans:     rawSPs,
       metrics:          { querySupported:false, queriesRun:[], queriesSkipped:[] },
-      networking:       null,
+      networking:       liveNetworking,
       fslogixCoverage:  { hostsWithout:[], storageAccounts:[] },
       resourceGroups:   rawRGs,
       imageDrift:       {},
