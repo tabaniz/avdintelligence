@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>70 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -5965,6 +5965,58 @@ async function qrCollect() {
         sh.nicIds        = vmMap[vmKey].nicIds;
       }
     });
+
+    // ── NIC enrichment — batch all NICs in parallel ────────────────
+    const allNicIds = [];
+    allSessionHosts.forEach(function(sh){
+      (sh.nicIds||[]).forEach(function(id){ if(id) allNicIds.push({ shName: sh.vmName||sh.name, nicId: id }); });
+    });
+    if(allNicIds.length){
+      qrProgress('Collecting network details... (0/' + allNicIds.length + ')', 73);
+      liveLog('NIC batch: ' + allNicIds.length + ' interfaces to collect', 'info');
+      let nicDone = 0;
+      const nicResults = await Promise.all(allNicIds.map(function(entry){
+        return armGet(entry.nicId + '?api-version=2023-05-01')
+          .then(function(nic){
+            nicDone++;
+            if(nicDone % 5 === 0 || nicDone === allNicIds.length){
+              qrProgress('Collecting network details... (' + nicDone + '/' + allNicIds.length + ')', 73 + Math.round(nicDone/allNicIds.length * 4));
+            }
+            const ipCfg = ((nic.properties||{}).ipConfigurations||[])[0] || {};
+            const ipProps = ipCfg.properties || {};
+            const subnetRef = ipProps.subnet && ipProps.subnet.id ? ipProps.subnet.id : '';
+            const subnetName  = subnetRef.split('/').pop() || '';
+            const vnetName    = subnetRef.split('/virtualNetworks/')[1]?.split('/')[0] || '';
+            const publicIPId  = ipProps.publicIPAddress && ipProps.publicIPAddress.id ? ipProps.publicIPAddress.id : '';
+            return {
+              shName:     entry.shName,
+              nicName:    nic.name || '',
+              privateIP:  ipProps.privateIPAddress || '',
+              subnetName: subnetName,
+              vnetName:   vnetName,
+              subnetRef:  subnetRef,
+              publicIPId: publicIPId
+            };
+          })
+          .catch(function(e){
+            liveLog('NIC fetch failed: ' + entry.nicId.split('/').pop() + ' — ' + e.message, 'warn');
+            return { shName: entry.shName, nicName:'', privateIP:'', subnetName:'', vnetName:'', subnetRef:'', publicIPId:'' };
+          });
+      }));
+      // Apply NIC data back to session hosts
+      nicResults.forEach(function(n){
+        const sh = allSessionHosts.find(function(s){ return (s.vmName||s.name) === n.shName; });
+        if(sh){
+          sh.privateIP       = sh.privateIP || n.privateIP;
+          sh.nicName         = n.nicName;
+          sh.subnet          = n.subnetName;
+          sh.virtualNetwork  = n.vnetName;
+          sh.subnetRef       = n.subnetRef;
+          sh.publicIPId      = n.publicIPId;
+        }
+      });
+      liveLog('NIC enrichment complete — ' + nicResults.filter(function(n){ return n.privateIP; }).length + '/' + allNicIds.length + ' with private IP', 'success');
+    }
 
     // ── Scaling Plans ─────────────────────────────────────────────────
     qrProgress('Collecting scaling plans...', 75);
