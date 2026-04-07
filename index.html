@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> 76 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -3629,7 +3629,7 @@ function rbOpen(){
   const envLbl=$('rb-env-label'); if(envLbl) envLbl.textContent=D.subscriptionName||D.subscriptionId||'—';
   // Apply live mode section defaults before building list
   if(D?.displayConfig?.isLiveMode===true){
-    rbState.sections = new Set(['overview','workspaces','hostpools','appgroups','desktops','sessionhosts']);
+    rbState.sections = new Set(RB_LIVE_TICKED_SECS);
   }
   rbBuildSecList(); rbUpdateSummary(); rbState.dirty=true; rbSetPreviewBtn(true);
   // Pre-fill exec textarea if empty
@@ -4349,7 +4349,7 @@ function rbBuildHTMLDoc(){
     }
 
     // Findings reference — single sentence only
-    if(allRecsCount>0 && document.getElementById('rb-findings-sentence')?.checked!==false){
+    if(allRecsCount>0 && document.getElementById('rb-findings-sentence')?.checked!==false && !(D?.displayConfig?.isLiveMode===true)){
       execProse += '<br><br>'+allRecsCount+' configuration finding'+(allRecsCount!==1?'s were':' was')+' identified during this assessment — see the <em>Configuration Findings</em> section for details.';
     }
 
@@ -4502,7 +4502,7 @@ function rbBuildHTMLDoc(){
     let hpHtml = sectionHeader(secNum++, '🖥', 'Host Pools', `${hps.length} pool${hps.length!==1?'s':''}`, 'sec-hostpools', `${hps.length} pool${hps.length!==1?'s':''}`);
     hpHtml += kpiRow(
       kpiBox('Total Pools', hps.length, `${s.pooledHostPools||0} pooled`, 'cyan'),
-      kpiBox('Total Capacity', hps.reduce((a,hp)=>a+(hp.totalCapacity||0),0), 'max sessions', 'blue'),
+      kpiBox('Max Session Limit', hps.reduce((a,hp)=>a+(hp.maxSessionLimit||0),0), 'across all host pools', 'blue'),
       kpiBox('Active Sessions', s.totalActiveSessions||0, 'across all pools', 'green'),
       kpiBox('Drain Mode', s.drainModeHosts||0, 'hosts blocked', (s.drainModeHosts||0)>0?'amber':'green')
     );
@@ -4528,6 +4528,8 @@ function rbBuildHTMLDoc(){
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DIAGNOSTICS</span><br>${hp.diagnosticsEnabled?'<span style="color:#059669">Enabled</span>':'<span style="color:#d97706">Not Configured</span>'}</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">ACTIVE SESSIONS</span><br><strong>${hp.activeSessions||0}</strong> active · ${hp.disconnectedSessions||0} disconnected</div>
           <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SCALING PLAN</span><br>${arr(hp.scalingPlans).map(sp=>esc(sp.name)).join(', ')||'<span style="color:#d97706">None assigned</span>'}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">REGISTRATION TOKEN</span><br>${(function(){ const s=hp.registrationTokenStatus||'NoToken'; const exp=hp.registrationTokenExpiry?new Date(hp.registrationTokenExpiry).toLocaleDateString('en-AU'):''; const col=s==='Active'?'#059669':s==='Expired'?'#dc2626':'#94a3b8'; return '<span style="color:'+col+'">'+esc(s)+'</span>'+(exp?' &middot; expires '+exp:''); })()}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SESSION HOST BREAKDOWN</span><br>${(function(){ const p=[]; if(hp.sessionHostsAvailable) p.push('<span style="color:#059669">'+hp.sessionHostsAvailable+' avail</span>'); if(hp.sessionHostsUnavailable) p.push('<span style="color:#dc2626">'+hp.sessionHostsUnavailable+' unavail</span>'); if(hp.sessionHostsNeedsAssistance) p.push('<span style="color:#d97706">'+hp.sessionHostsNeedsAssistance+' needs assist</span>'); if(hp.sessionHostsShutdown) p.push('<span style="color:#64748b">'+hp.sessionHostsShutdown+' shutdown</span>'); if(hp.sessionHostsDrainMode) p.push('<span style="color:#d97706">'+hp.sessionHostsDrainMode+' drain</span>'); return p.length?p.join(' &middot; '):'No hosts'; })()}</div>
           ${hp.description?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DESCRIPTION</span><br>${esc(hp.description)}</div>`:''}
           ${Object.keys(hp.tags||{}).length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${Object.entries(hp.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
           <div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(hp.id||'—')}</code></div>
@@ -4545,12 +4547,26 @@ function rbBuildHTMLDoc(){
     sps.forEach(sp=>{
       const spTags=Object.entries(sp.tags||{});
       const spHPs=arr(sp.hostPoolReferences).map(r=>r.hostPoolId.split('/').pop()).filter(Boolean);
-      spHtml += `<div style="margin-bottom:16px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px"><p style="font-weight:700;font-size:13px;color:#0d1117;margin-bottom:2px">${esc(sp.name)} <span style="font-size:10px;color:#94a3b8;font-weight:400">· ${esc(sp.hostPoolType||'—')}</span></p>
-        <div style="font-size:11px;color:#475569;margin-bottom:6px">${esc(sp.resourceGroup||'—')} · ${esc(sp.location||'—')}${spTags.length?' · '+spTags.map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' '):''}</div>
-        ${spHPs.length?`<div style="margin-bottom:6px;font-size:11px"><span style="color:#64748b">Host Pool${spHPs.length!==1?'s':''}:</span> ${spHPs.map(n=>`<span style="background:#e0f9ff;color:#00a8cc;border-radius:3px;padding:1px 7px;font-size:10px;font-family:'Courier New',monospace">${esc(n)}</span>`).join(' ')}</div>`:''}
-        ${sp.id?`<div style="font-size:9px;color:#94a3b8;margin-top:4px">Resource ID: <code style="font-size:9px;color:#475569">${esc(sp.id)}</code></div>`:''}`;
+      spHtml += `<div style="margin:16px 0 8px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;border-left:4px solid #d97706">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:16px">⚖</span>
+          <span style="font-family:'Segoe UI',sans-serif;font-weight:700;font-size:14px;color:#0d1117">${esc(sp.name)}</span>
+          ${pill(sp.hostPoolType||'Pooled', sp.hostPoolType==='Pooled'?'cyan':'purple')}
+          <span style="font-size:11px;color:#94a3b8;margin-left:auto">${spHPs.length} host pool${spHPs.length!==1?'s':''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#475569">
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE GROUP</span><br>${esc(sp.resourceGroup||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOCATION</span><br>${esc(sp.location||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TIME ZONE</span><br>${esc(sp.timezone||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">SCHEDULES</span><br>${arr(sp.schedules).length} configured</div>
+          ${sp.exclusionTag?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">EXCLUSION TAG</span><br><code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(sp.exclusionTag)}</code></div>`:''}
+          ${spHPs.length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">HOST POOLS</span><br>${spHPs.map(n=>`<span style="background:#e0f9ff;color:#00a8cc;border-radius:3px;padding:2px 8px;font-size:10px;font-family:'Courier New',monospace;margin-right:4px">${esc(n)}</span>`).join('')}</div>`:''}
+          ${spTags.length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${spTags.map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
+          ${sp.id?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(sp.id)}</code></div>`:''}
+        </div>`;
       arr(sp.schedules).forEach(sc=>{
-        spHtml += `<p style="font-size:11px;color:#475569;margin-bottom:4px;font-weight:600">${esc(sc.name)} — ${arr(sc.daysOfWeek).join(', ')||'—'}</p>`;
+        spHtml += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0">
+          <p style="font-size:11px;color:#475569;margin-bottom:6px;font-weight:600">${esc(sc.name)} — ${arr(sc.daysOfWeek).join(', ')||'—'}</p>`;
         spHtml += docTable(
           ['Phase','Start Time','Algorithm','Min Hosts','Capacity Threshold'],
           [
@@ -4560,7 +4576,8 @@ function rbBuildHTMLDoc(){
             ['Off-Peak', sc.offPeakStartTime||'—',  sc.offPeakLoadAlgorithm||'—',  '—','—'],
           ]
         );
-        if(sc.rampDownNotificationMessage) spHtml += `<p style="font-size:10px;color:#64748b;font-style:italic;margin:4px 0 10px">Notification: ${esc(sc.rampDownNotificationMessage)}</p>`;
+        if(sc.rampDownNotificationMessage) spHtml += `<p style="font-size:10px;color:#64748b;font-style:italic;margin:4px 0 0">Notification: ${esc(sc.rampDownNotificationMessage)}</p>`;
+        spHtml += `</div>`;
       });
       spHtml += '</div>';
     });
@@ -4573,19 +4590,22 @@ function rbBuildHTMLDoc(){
     let wsHtml = sectionHeader(secNum++, '⊞', 'Workspaces', `${wss.length} workspace${wss.length!==1?'s':''}`, 'sec-workspaces', `${wss.length} workspace${wss.length!==1?'s':''}`);
     wss.forEach(ws=>{
       const wsAgs=ags.filter(ag=>ag.workspaceId===ws.id||ag.workspaceName===ws.name);
-      wsHtml+=`<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:700;font-size:13px">${esc(ws.name)}</span>
-          ${ws.friendlyName&&ws.friendlyName!==ws.name?`<span style="font-size:11px;color:#64748b">${esc(ws.friendlyName)}</span>`:''}
+      wsHtml+=`<div style="margin:16px 0 8px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;border-left:4px solid #a855f7">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:16px">⊞</span>
+          <span style="font-family:'Segoe UI',sans-serif;font-weight:700;font-size:14px;color:#0d1117">${esc(ws.name)}</span>
           ${ws.diagnosticsEnabled?pill('Diagnostics','green'):pill('No Diagnostics','amber')}
           <span style="font-size:11px;color:#94a3b8;margin-left:auto">${wsAgs.length} app group${wsAgs.length!==1?'s':''}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
-          <span><b>Resource Group:</b> ${esc(ws.resourceGroup||'—')}</span>
-          <span><b>Location:</b> ${esc(ws.location||'—')}</span>
-          ${ws.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ws.description)}</span>`:''}
-          ${Object.keys(ws.tags||{}).length?`<span style="grid-column:1/-1"><b>Tags:</b> ${Object.entries(ws.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</span>`:''}
-          <span style="grid-column:1/-1"><b>Resource ID:</b> <code style="font-size:9px;color:#0055aa">${esc(ws.id||'—')}</code></span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#475569">
+          ${ws.friendlyName&&ws.friendlyName!==ws.name?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">FRIENDLY NAME</span><br>${esc(ws.friendlyName)}</div>`:''}
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE GROUP</span><br>${esc(ws.resourceGroup||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOCATION</span><br>${esc(ws.location||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DIAGNOSTICS</span><br>${ws.diagnosticsEnabled?'<span style="color:#059669">Enabled</span>':'<span style="color:#d97706">Not Configured</span>'}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">APP GROUPS</span><br>${wsAgs.length} linked</div>
+          ${ws.description?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DESCRIPTION</span><br>${esc(ws.description)}</div>`:''}
+          ${Object.keys(ws.tags||{}).length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${Object.entries(ws.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
+          <div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(ws.id||'—')}</code></div>
         </div>
         ${wsAgs.length?docTable(['App Group','Type','Host Pool'],wsAgs.map(ag=>[esc(ag.name||'—'),pill(ag.applicationGroupType||'—',ag.applicationGroupType==='Desktop'?'blue':'purple'),esc(ag.hostPoolName||'—')])):''}
       </div>`;
@@ -4599,21 +4619,25 @@ function rbBuildHTMLDoc(){
     ags.forEach(ag=>{
       const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
       const stdRole='Desktop Virtualization User';
-      agHtml += `<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:700;font-size:13px">${esc(ag.name)}</span>
+      agHtml += `<div style="margin:16px 0 8px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;border-left:4px solid #2563eb">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:16px">${ag.applicationGroupType==='Desktop'?'🖥':'🚀'}</span>
+          <span style="font-family:'Segoe UI',sans-serif;font-weight:700;font-size:14px;color:#0d1117">${esc(ag.name)}</span>
           ${pill(ag.applicationGroupType||'Desktop', ag.applicationGroupType==='Desktop'?'blue':'purple')}
-          ${ag.diagnosticsEnabled?pill('Diagnostics On','green'):pill('No Diagnostics','amber')}
+          ${ag.diagnosticsEnabled?pill('Diagnostics','green'):pill('No Diagnostics','amber')}
           <span style="font-size:11px;color:#94a3b8;margin-left:auto">${ag.totalAssignees||0} assigned</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
-          <span><b>Host Pool:</b> ${esc(ag.hostPoolName||'—')}</span>
-          <span><b>Workspace:</b> ${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</span>
-          <span><b>Resource Group:</b> ${esc(ag.resourceGroup||'—')}</span>
-          <span><b>Location:</b> ${esc(ag.location||'—')}</span>
-          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<span><b>Friendly Name:</b> ${esc(ag.friendlyName)}</span>`:''}
-          ${ag.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ag.description)}</span>`:''}
-          ${Object.keys(ag.tags||{}).length?`<span style="grid-column:1/-1"><b>Tags:</b> ${Object.entries(ag.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 4px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</span>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#475569">
+          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">FRIENDLY NAME</span><br>${esc(ag.friendlyName)}</div>`:''}
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">HOST POOL</span><br>${esc(ag.hostPoolName||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">WORKSPACE</span><br>${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE GROUP</span><br>${esc(ag.resourceGroup||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOCATION</span><br>${esc(ag.location||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TYPE</span><br>${esc(ag.applicationGroupType||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DIAGNOSTICS</span><br>${ag.diagnosticsEnabled?'<span style="color:#059669">Enabled</span>':'<span style="color:#d97706">Not Configured</span>'}</div>
+          ${ag.description?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DESCRIPTION</span><br>${esc(ag.description)}</div>`:''}
+          ${Object.keys(ag.tags||{}).length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${Object.entries(ag.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
+          <div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(ag.id||'—')}</code></div>
         </div>
         ${allA.length?docTable(['Principal','Type'],allA.map(a=>{const nonStd=a.role&&a.role!==stdRole?` <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px">${esc(a.role)}</span>`:'';return[esc(a.displayName||a.signInName||a.objectId||'—')+nonStd,pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray')];})):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
         ${ag.applicationGroupType==='RemoteApp'&&arr(ag.remoteApps).length?'<p style="font-size:10px;color:#64748b;margin-top:6px">Apps: '+arr(ag.remoteApps).map(a=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:10px">${esc(a.friendlyName||a.name||'—')}</code>`).join(' ')+'</p>':''}
@@ -4648,19 +4672,23 @@ function rbBuildHTMLDoc(){
     deskAgsR.forEach(ag=>{
       const allA=[...arr(ag.assignedUsers),...arr(ag.assignedGroups)];
       const stdRole='Desktop Virtualization User';
-      deskHtml+=`<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:700;font-size:13px">${esc(ag.name)}</span>
+      deskHtml+=`<div style="margin:16px 0 8px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;border-left:4px solid #059669">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:16px">🖵</span>
+          <span style="font-family:'Segoe UI',sans-serif;font-weight:700;font-size:14px;color:#0d1117">${esc(ag.name)}</span>
           ${pill('Desktop','blue')}
-          ${ag.showInPortal!==false?pill('Visible in Portal','green'):pill('Hidden','gray')}
+          ${ag.showInPortal!==false?pill('Portal Visible','green'):pill('Hidden','gray')}
           <span style="font-size:11px;color:#94a3b8;margin-left:auto">${allA.length} assigned</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:11px;margin-bottom:8px">
-          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<span><b>Friendly Name:</b> ${esc(ag.friendlyName)}</span>`:''}
-          <span><b>Workspace:</b> ${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</span>
-          <span><b>Host Pool:</b> ${esc(ag.hostPoolName||'—')}</span>
-          <span><b>Resource Group:</b> ${esc(ag.resourceGroup||'—')}</span>
-          ${ag.description?`<span style="grid-column:1/-1"><b>Description:</b> ${esc(ag.description)}</span>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#475569">
+          ${ag.friendlyName&&ag.friendlyName!==ag.name?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">FRIENDLY NAME</span><br>${esc(ag.friendlyName)}</div>`:''}
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">WORKSPACE</span><br>${esc(ag.workspaceFriendlyName||ag.workspaceName||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">HOST POOL</span><br>${esc(ag.hostPoolName||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE GROUP</span><br>${esc(ag.resourceGroup||'—')}</div>
+          <div><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">LOCATION</span><br>${esc(ag.location||'—')}</div>
+          ${ag.description?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">DESCRIPTION</span><br>${esc(ag.description)}</div>`:''}
+          ${Object.keys(ag.tags||{}).length?`<div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">TAGS</span><br>${Object.entries(ag.tags).map(([k,v])=>`<code style="background:#e2e8f0;padding:1px 5px;border-radius:2px;font-size:9px">${esc(k)}: ${esc(v)}</code>`).join(' ')}</div>`:''}
+          <div style="grid-column:1/-1"><span style="color:#94a3b8;font-family:'Courier New',monospace;font-size:9px">RESOURCE ID</span><br><code style="font-size:9px;color:#0055aa;word-break:break-all">${esc(ag.id||'—')}</code></div>
         </div>
         ${allA.length?docTable(['Principal','Type'],allA.map(a=>{const nonStd=a.role&&a.role!==stdRole?` <span style="background:#fef3c7;color:#92400e;font-size:9px;padding:1px 4px;border-radius:3px">${esc(a.role)}</span>`:'';return[esc(a.displayName||a.signInName||a.objectId||'—')+nonStd,pill(a.objectType||'—',a.objectType==='Group'?'cyan':'gray')];})):'<p style="font-size:11px;color:#94a3b8">No assignments</p>'}
       </div>`;
@@ -4678,7 +4706,7 @@ function rbBuildHTMLDoc(){
       kpiBox('Available', avail, `of ${shs.length} total`, avail===shs.length?'green':'amber'),
       kpiBox('Unavailable', unavail, 'needs attention', unavail>0?'red':'green'),
       kpiBox('Drain Mode', drain, 'new sessions blocked', drain>0?'amber':'green'),
-      kpiBox('FSLogix', (s.hostsWithFSLogixDetected||0)+'/'+(s.totalSessionHosts||shs.length), 'coverage', s.hostsWithFSLogixDetected===shs.length?'green':'amber')
+      ...(D?.displayConfig?.isLiveMode===true?[]:[kpiBox('FSLogix', (s.hostsWithFSLogixDetected||0)+'/'+(s.totalSessionHosts||shs.length), 'coverage', s.hostsWithFSLogixDetected===shs.length?'green':'amber')])
     );
     // ── Per-host expanded cards ───────────────────────────────────
     shs.forEach(function(sh){
@@ -4686,14 +4714,14 @@ function rbBuildHTMLDoc(){
       const statusC = {Available:'#059669',Unavailable:'#dc2626',NeedsAssistance:'#d97706',Shutdown:'#64748b',Disconnected:'#d97706'}[sh.status]||'#64748b';
       const diskType = sh.osDiskType||'—';
       const diskTypeC = diskType.includes('Premium')?'#059669':diskType.includes('Standard_SSD')?'#2563eb':'#64748b';
-      const tags = Object.entries(sh.tags||{});
+      const tags = Object.entries(sh.vmTags||sh.tags||{});
       const net = sh.networkDetails || {};
       const location = sh.vmLocation||sh.location||'—';
 
-      shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden">
+      shHtml += `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden;border-left:4px solid #8B9B77">
         <!-- Card header -->
         <div style="background:#0d1117;padding:10px 16px;display:flex;align-items:center;gap:12px">
-          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(sh.vmNameFull||sh.vmName||sh.name||'—')}</span>
+          <span style="font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#00d4ff">${esc(sh.name||sh.vmNameFull||sh.vmName||'—')}${sh.vmName&&sh.name&&sh.name!==sh.vmName?'<span style="font-size:10px;color:#64748b;margin-left:8px;font-weight:400">'+esc(sh.vmName)+'</span>':''}</span>
           <span style="font-size:11px;font-weight:600;color:${statusC}">${esc(sh.status||'—')}</span>
           ${sh.drainMode?'<span style="font-size:9px;background:#92400e;color:#fef3c7;padding:2px 6px;border-radius:3px;margin-left:4px">DRAIN MODE</span>':''}
           ${sh.excludeFromScaling?'<span style="font-size:9px;background:#854d0e;color:#fef9c3;padding:2px 6px;border-radius:3px;margin-left:4px">EXCL. SCALING</span>':''}
@@ -4717,7 +4745,7 @@ function rbBuildHTMLDoc(){
           <!-- VM Details -->
           <div style="padding:12px 14px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
             <div style="font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;color:#00a8cc;text-transform:uppercase;margin-bottom:8px">VM Details</div>
-            ${kvLine('VM Name',     sh.vmName||'—')}
+            ${kvLine('VM Name', sh.vmName||(sh.name||'').split('.')[0]||'—')}${kvLine('Image', sh.imageInfo&&sh.imageInfo.trim()&&sh.imageInfo.trim()!=='/ /'?sh.imageInfo:'—')}${sh.assignedUser?kvLine('Assigned User',esc(sh.assignedUser)):''}
             ${kvLine('OS Version',  sh.osVersion||'—')}
             ${kvLine('Agent Ver',   sh.agentVersion||'—')}
             ${kvLine('OS Type',     sh.osType||'—')}
@@ -4733,6 +4761,9 @@ function rbBuildHTMLDoc(){
             ${kvLine('Disk Size',   sh.osDiskSizeGB ? sh.osDiskSizeGB+' GB' : '—')}
             ${kvLine('Disk Type',   diskType!=='—'?`<span style="color:${diskTypeC}">${esc(diskType)}</span>`:'—')}
             ${kvLine('Caching',     sh.osDiskCaching||'—')}
+            ${sh.vmCost!=null||sh.diskCost!=null?kvLine('VM Cost',(sh.vmCost||0).toFixed(2)+' '+(sh.currency||'AUD')):''}
+            ${sh.diskCost!=null?kvLine('Disk Cost',(sh.diskCost||0).toFixed(2)+' '+(sh.currency||'AUD')):''}
+            ${sh.totalHostCost!=null?kvLine('Total Host Cost','<strong>'+(sh.totalHostCost||0).toFixed(2)+' '+(sh.currency||'AUD')+'</strong>'):''}
           </div>
 
           <!-- Network Details -->
@@ -5941,14 +5972,18 @@ async function qrCollect() {
 
     // ── VMs ──────────────────────────────────────────────────────────
     qrProgress('Collecting VMs...', 72);
-    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01');
+    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01&$expand=instanceView');
     const vmMap = {};
     (vmResp.value || []).forEach(function(vm) {
       const osDisk = vm.properties.storageProfile.osDisk || {};
+      const statuses = ((vm.properties.instanceView||{}).statuses||[]);
+      const psStat = statuses.find(function(s){ return s.code && s.code.startsWith('PowerState/'); });
+      const psLabel = psStat ? psStat.displayStatus : 'Unknown';
       vmMap[vm.name.toLowerCase()] = {
         vmSize:       vm.properties.hardwareProfile.vmSize || '',
         osType:       osDisk.osType || 'Windows',
         location:     vm.location || '',
+        powerState:   psLabel,
         osDiskName:   osDisk.name || '',
         osDiskSizeGB: osDisk.diskSizeGB || 0,
         osDiskType:   (osDisk.managedDisk||{}).storageAccountType || '',
@@ -5966,6 +6001,7 @@ async function qrCollect() {
         sh.vmSize        = vmMap[vmKey].vmSize;
         sh.osType        = vmMap[vmKey].osType;
         sh.vmLocation    = vmMap[vmKey].location;
+        sh.powerState    = vmMap[vmKey].powerState || 'Unknown';
         sh.osDiskName    = vmMap[vmKey].osDiskName;
         sh.osDiskSizeGB  = vmMap[vmKey].osDiskSizeGB;
         sh.osDiskType    = vmMap[vmKey].osDiskType;
