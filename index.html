@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> 75 | YGIT AVD Intelligence</title>
+<title>YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -6043,18 +6043,30 @@ async function qrCollect() {
           const schedResp = await armGet('/subscriptions/' + subId + '/resourceGroups/' + spRg 
             + '/providers/Microsoft.DesktopVirtualization/scalingPlans/' + sp.name 
             + '/pooledSchedules?api-version=2023-09-05');
+          // Helper to convert Azure time object {hour:8,minute:30} to "08:30"
+          const parseTime = function(t) {
+            if(!t) return '';
+            if(typeof t === 'string') return t;
+            if(typeof t === 'object' && t.hour !== undefined) {
+              const h = String(t.hour || 0).padStart(2,'0');
+              const m = String(t.minute || 0).padStart(2,'0');
+              return h + ':' + m;
+            }
+            return String(t);
+          };
+          
           schedules = (schedResp.value || []).map(function(sch){
             const sp = sch.properties || {};
             return {
               name:                        sch.name,
               daysOfWeek:                  sp.daysOfWeek || [],
-              rampUpStartTime:             String(sp.rampUpStartTime || ''),
+              rampUpStartTime:             parseTime(sp.rampUpStartTime),
               rampUpLoadAlgorithm:         sp.rampUpLoadBalancingAlgorithm || '',
               rampUpMinimumHostsPct:       sp.rampUpMinimumHostsPct || 0,
               rampUpCapacityThresholdPct:  sp.rampUpCapacityThresholdPct || 0,
-              peakStartTime:               String(sp.peakStartTime || ''),
+              peakStartTime:               parseTime(sp.peakStartTime),
               peakLoadAlgorithm:           sp.peakLoadBalancingAlgorithm || '',
-              rampDownStartTime:           String(sp.rampDownStartTime || ''),
+              rampDownStartTime:           parseTime(sp.rampDownStartTime),
               rampDownLoadAlgorithm:       sp.rampDownLoadBalancingAlgorithm || '',
               rampDownMinimumHostsPct:     sp.rampDownMinimumHostsPct || 0,
               rampDownCapacityThresholdPct:sp.rampDownCapacityThresholdPct || 0,
@@ -6062,7 +6074,7 @@ async function qrCollect() {
               rampDownStopHostsWhen:       sp.rampDownStopHostsWhen || '',
               rampDownWaitTimeMinutes:     sp.rampDownWaitTimeMinutes || 0,
               rampDownForceLogoffUser:     sp.rampDownForceLogoffUsers || false,
-              offPeakStartTime:            String(sp.offPeakStartTime || ''),
+              offPeakStartTime:            parseTime(sp.offPeakStartTime),
               offPeakLoadAlgorithm:        sp.offPeakLoadBalancingAlgorithm || ''
             };
           });
@@ -6078,6 +6090,8 @@ async function qrCollect() {
           location:      sp.location || '',
           friendlyName:  props.friendlyName || sp.name,
           hostPoolType:  props.hostPoolType || '',
+          timezone:      props.timeZone || '',
+          exclusionTag:  props.exclusionTag || '',
           tags:          sp.tags || {},
           hostPoolReferences: (props.hostPoolReferences||[]).map(function(r){ return { hostPoolId: r.hostPoolArmPath, scalingPlanEnabled: r.scalingPlanEnabled }; }),
           schedules:     schedules
@@ -6286,7 +6300,7 @@ async function qrCollect() {
       hostPools:        hostPools,
       sessionHosts:     allSessionHosts,
       sessions:         allSessions,
-      avdWorkspaces:    rawWSs.map(function(w){ return { name:w.name, id:w.id, friendlyName:(w.properties||{}).friendlyName||w.name, location:w.location, resourceGroup:(w.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'' }; }),
+      avdWorkspaces:    rawWSs.map(function(w){ return { name:w.name, id:w.id, friendlyName:(w.properties||{}).friendlyName||w.name, description:(w.properties||{}).description||'', location:w.location, resourceGroup:(w.id.match(/resourceGroups\/([^/]+)\//i)||[])[1]||'', tags:w.tags||{} }; }),
       applicationGroups:rawAGs.map(function(a){
         const ras = allRoleAssignments[a.id] || [];
         const users = [], groups = [];
