@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Test | YGIT AVD Intelligence</title>
+<title> instanceView | YGIT AVD Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -5972,7 +5972,7 @@ async function qrCollect() {
 
     // ── VMs ──────────────────────────────────────────────────────────
     qrProgress('Collecting VMs...', 72);
-    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01&$expand=instanceView');
+    const vmResp = await armGet('/subscriptions/' + subId + '/providers/Microsoft.Compute/virtualMachines?api-version=2023-07-01'); //$expand=instanceView
     const vmMap = {};
     (vmResp.value || []).forEach(function(vm) {
       const osDisk = vm.properties.storageProfile.osDisk || {};
